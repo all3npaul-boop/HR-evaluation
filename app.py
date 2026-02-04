@@ -5,12 +5,12 @@ from __future__ import annotations
 import re
 from typing import List, Tuple
 
-import pdfplumber # type: ignore
-import streamlit as st # type: ignore
+import pdfplumber
+import streamlit as st
 
-JD_SKILLS = ["python", "sql", "data structures", "problem solving"]
-REQUIRED_EXPERIENCE = 3  # years
-REQUIRED_EDUCATION = "bachelor"
+DEFAULT_JD_SKILLS = ["python", "sql", "data structures", "problem solving"]
+DEFAULT_REQUIRED_EXPERIENCE = 3  # years
+DEFAULT_REQUIRED_EDUCATION = "bachelor"
 
 
 def extract_text_from_pdf(pdf_file) -> str:
@@ -34,6 +34,16 @@ def count_years_of_experience(text: str) -> int:
     matches = re.findall(r"(\d+)\s*\+?\s*years?", text)
     years = [int(match) for match in matches] if matches else [0]
     return max(years)
+
+
+def extract_required_skills(job_description: str, fallback_skills: List[str]) -> List[str]:
+    """Extract required skills from a job description (comma or newline-separated)."""
+    if not job_description.strip():
+        return fallback_skills
+
+    split_candidates = re.split(r"[,\n;/]+", job_description.lower())
+    cleaned = [skill.strip() for skill in split_candidates if skill.strip()]
+    return cleaned or fallback_skills
 
 
 def evaluate_skills(text: str, skills: List[str]) -> Tuple[List[str], float]:
@@ -74,6 +84,7 @@ def build_explanation(
     education_match: bool,
     total_score: float,
     decision: str,
+    job_role: str,
 ) -> str:
     """Create a human-readable explanation for the evaluation."""
     skills_list = ", ".join(matched_skills) if matched_skills else "no listed skills"
@@ -100,6 +111,7 @@ def build_explanation(
     )
 
     return (
+        f"Role evaluated: {job_role or 'Role not specified'}.\n"
         f"{skills_sentence}\n"
         f"{experience_sentence}\n"
         f"{education_sentence}\n"
@@ -110,16 +122,74 @@ def build_explanation(
 def main() -> None:
     """Run the Streamlit app."""
     st.set_page_config(page_title="CYGNUSA Elite-Hire", layout="centered")
+    st.markdown(
+        """
+        <style>
+            .stApp {
+                background-color: #ffffff;
+                color: #0b1f3a;
+            }
+            h1, h2, h3, h4, h5, h6, p, label, span, div {
+                color: #0b1f3a;
+            }
+            .stButton > button {
+                background-color: #0b1f3a;
+                color: #ffffff;
+                border-radius: 8px;
+                border: none;
+            }
+            .stTextInput input, .stTextArea textarea, .stFileUploader {
+                background-color: #ffffff;
+                color: #0b1f3a;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+            }
+            .st-emotion-cache-d8lm1x {
+                font-family: "Source Sans", sans-serif;
+                color: #000 !important;
+                white-space: pre-wrap;
+                word-break: break-word;
+                display: inline-block;
+                vertical-align: middle;
+                width: 100%;
+            }
+                .st-emotion-cache-zh4rd8 {
+                
+                    color: #000 !important;
+                    
+                    background-color: #ffff !important;
+                }
+
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
     st.title("CYGNUSA Elite-Hire")
     st.subheader("Explainable AI-Driven Hiring Evaluation")
 
     st.markdown(
-        "Upload a resume in PDF format. The system uses transparent, rule-based scoring "
-        "to evaluate skills, experience, and education alignment."
+        "Provide the job role and job description, then upload a resume in PDF format. "
+        "The system uses transparent, rule-based scoring to evaluate skills, experience, "
+        "and education alignment."
+    )
+
+    job_role = st.text_input("Job Role", placeholder="e.g., Data Analyst")
+    job_description = st.text_area(
+        "Job Description (list skills and requirements)",
+        placeholder="Example: Python, SQL, problem solving, 3 years experience, bachelor",
+        height=140,
+    )
+
+    st.caption(
+        "Tip: Separate required skills with commas or new lines for best matching."
     )
 
     uploaded_file = st.file_uploader("Upload PDF Resume", type=["pdf"])
+
+    if not job_description.strip():
+        st.info("Please enter a job description to begin the evaluation.")
+        return
 
     if uploaded_file is None:
         st.info("Please upload a PDF resume to begin the evaluation.")
@@ -131,12 +201,13 @@ def main() -> None:
         st.warning("We couldn't extract text from that PDF. Try another file.")
         return
 
-    matched_skills, skills_score = evaluate_skills(resume_text, JD_SKILLS)
+    required_skills = extract_required_skills(job_description, DEFAULT_JD_SKILLS)
+    matched_skills, skills_score = evaluate_skills(resume_text, required_skills)
     years_found, experience_score = evaluate_experience(
-        resume_text, REQUIRED_EXPERIENCE
+        resume_text, DEFAULT_REQUIRED_EXPERIENCE
     )
     education_match, education_score = evaluate_education(
-        resume_text, REQUIRED_EDUCATION
+        resume_text, DEFAULT_REQUIRED_EDUCATION
     )
 
     total_score = skills_score + experience_score + education_score
@@ -144,12 +215,13 @@ def main() -> None:
 
     explanation = build_explanation(
         matched_skills,
-        len(JD_SKILLS),
+        len(required_skills),
         years_found,
-        REQUIRED_EXPERIENCE,
+        DEFAULT_REQUIRED_EXPERIENCE,
         education_match,
         total_score,
         decision,
+        job_role,
     )
 
     st.divider()
@@ -157,6 +229,7 @@ def main() -> None:
 
     st.metric("Match Score", f"{round(total_score)} / 100")
     st.metric("Decision", decision)
+    st.write(f"Role: {job_role or 'Not specified'}")
 
     st.subheader("Score Breakdown")
     st.write(f"Skills Score: {round(skills_score)} / 50")
