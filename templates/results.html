@@ -56,6 +56,18 @@
     <div class="container">
         <h1>Candidate Ranking Dashboard</h1>
         <p>Role: {{ job_role if job_role else "Not specified" }}</p>
+        <p>
+            Required Skills:
+            {{ role_requirements.skills | join(", ") if role_requirements and role_requirements.skills else "Not specified" }}
+        </p>
+        <p>
+            Required Experience:
+            {{ role_requirements.experience if role_requirements and role_requirements.experience is not none else "Not specified" }} years
+        </p>
+        <p>
+            Required Education:
+            {{ role_requirements.education if role_requirements and role_requirements.education else "Not specified" }}
+        </p>
         <p>Total candidates processed: {{ total_candidates }}</p>
 
         {% if warnings %}
@@ -92,9 +104,9 @@
                 <p><strong>Decision:</strong> {{ result.decision }}</p>
                 <p><strong>Score Breakdown:</strong></p>
                 <ul>
-                    <li>Skills Score: {{ result.breakdown.skills }} / 50</li>
-                    <li>Experience Score: {{ result.breakdown.experience }} / 30</li>
-                    <li>Education Score: {{ result.breakdown.education }} / 20</li>
+                    <li>Skills Score: {{ result.breakdown.skills }} / 60</li>
+                    <li>Experience Score: {{ result.breakdown.experience }} / 25</li>
+                    <li>Education Score: {{ result.breakdown.education }} / 15</li>
                 </ul>
                 <p><strong>Explanation:</strong></p>
                 <pre>{{ result.explanation }}</pre>

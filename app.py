@@ -12,6 +12,25 @@ DEFAULT_JD_SKILLS = ["python", "sql", "data structures", "problem solving"]
 DEFAULT_REQUIRED_EXPERIENCE = 3  # years
 DEFAULT_REQUIRED_EDUCATION = "bachelor"
 
+# Local job role dataset (used for automatic JD loading).
+JOB_ROLES = {
+    "Full Stack Developer": {
+        "skills": ["react", "node.js", "postgresql", "aws"],
+        "experience": 3,
+        "education": "bachelor",
+    },
+    "Lab Chemist": {
+        "skills": ["chemical analysis", "qc testing", "msds management"],
+        "experience": 2,
+        "education": "bachelor",
+    },
+    "Data Analyst": {
+        "skills": ["python", "sql", "data visualization", "problem solving"],
+        "experience": 2,
+        "education": "bachelor",
+    },
+}
+
 app = Flask(__name__)
 
 
@@ -87,9 +106,13 @@ def decide(score: float) -> str:
 
 # Core logic function wrappers (required names)
 
-def decision(score: float) -> str:
-    """Wrapper for decision logic."""
-    return decide(score)
+def decision(score: float, skill_match_ratio: float) -> str:
+    """Wrapper for decision logic with skill protection rule."""
+    base_decision = decide(score)
+    # Skill protection: strong skill match cannot be rejected due to experience gap.
+    if skill_match_ratio >= 0.75 and base_decision == "Reject":
+        return "Potential"
+    return base_decision
 
 
 # Core logic function wrappers (required names)
@@ -97,16 +120,36 @@ def decision(score: float) -> str:
 def calculate_score(
     resume_text: str,
     job_description: str,
+    role_requirements: dict,
 ) -> dict:
-    """Calculate score and breakdown for a resume based on the job description."""
-    required_skills = extract_required_skills(job_description, DEFAULT_JD_SKILLS)
-    matched_skills, skills_score = evaluate_skills(resume_text, required_skills)
-    years_found, experience_score = evaluate_experience(
-        resume_text, DEFAULT_REQUIRED_EXPERIENCE
+    """Calculate score and breakdown for a resume based on role requirements."""
+    required_skills = role_requirements.get("skills") or extract_required_skills(
+        job_description, DEFAULT_JD_SKILLS
     )
-    education_match, education_score = evaluate_education(
-        resume_text, DEFAULT_REQUIRED_EDUCATION
+    required_experience = role_requirements.get(
+        "experience", DEFAULT_REQUIRED_EXPERIENCE
     )
+    required_education = role_requirements.get(
+        "education", DEFAULT_REQUIRED_EDUCATION
+    )
+
+    matched_skills, _ = evaluate_skills(resume_text, required_skills)
+    skill_match_ratio = len(matched_skills) / len(required_skills) if required_skills else 0
+
+    # Updated weighting: skills 60, experience 25, education 15.
+    skills_score = skill_match_ratio * 60
+
+    years_found = count_years_of_experience(resume_text)
+    # Experience scoring with partial credit (not a strict cutoff).
+    if years_found >= required_experience:
+        experience_score = 25
+    elif years_found >= max(required_experience - 1, 0):
+        experience_score = 15
+    else:
+        experience_score = 5
+
+    education_match, _ = evaluate_education(resume_text, required_education)
+    education_score = 15 if education_match else 7
 
     total_score = skills_score + experience_score + education_score
 
@@ -114,10 +157,13 @@ def calculate_score(
         "required_skills": required_skills,
         "matched_skills": matched_skills,
         "skills_score": skills_score,
+        "skill_match_ratio": skill_match_ratio,
         "years_found": years_found,
+        "required_experience": required_experience,
         "experience_score": experience_score,
         "education_score": education_score,
         "education_match": education_match,
+        "required_education": required_education,
         "total_score": total_score,
     }
 
@@ -158,7 +204,9 @@ def build_explanation(
 
     return (
         f"Role evaluated: {job_role or 'Role not specified'}.\n"
+        "Skill alignment is the primary factor in this evaluation.\n"
         f"{skills_sentence}\n"
+        "Experience is considered but does not automatically disqualify strong skills.\n"
         f"{experience_sentence}\n"
         f"{education_sentence}\n"
         f"Final score: {round(total_score)}/100 — Decision: {decision_text}."
@@ -193,14 +241,21 @@ def explain(
 @app.route("/")
 def index() -> str:
     """Render the upload form."""
-    return render_template("index.html")
+    return render_template("index.html", roles=sorted(JOB_ROLES.keys()))
 
 
 @app.route("/upload", methods=["POST"])
 def upload() -> str:
     """Handle resume uploads and render ranking results."""
     job_role = request.form.get("job_role", "").strip()
-    job_description = request.form.get("job_description", "").strip()
+    job_description = ""
+    role_requirements = JOB_ROLES.get(job_role, {})
+    if not role_requirements:
+        role_requirements = {
+            "skills": DEFAULT_JD_SKILLS,
+            "experience": DEFAULT_REQUIRED_EXPERIENCE,
+            "education": DEFAULT_REQUIRED_EDUCATION,
+        }
 
     uploaded_files = request.files.getlist("resumes")
     if not uploaded_files:
@@ -217,13 +272,15 @@ def upload() -> str:
             )
             continue
 
-        score_data = calculate_score(resume_text, job_description)
-        decision_text = decision(score_data["total_score"])
+        score_data = calculate_score(resume_text, job_description, role_requirements)
+        decision_text = decision(
+            score_data["total_score"], score_data["skill_match_ratio"]
+        )
         explanation = explain(
             score_data["matched_skills"],
             len(score_data["required_skills"]),
             score_data["years_found"],
-            DEFAULT_REQUIRED_EXPERIENCE,
+            score_data["required_experience"],
             score_data["education_match"],
             score_data["total_score"],
             decision_text,
@@ -251,6 +308,7 @@ def upload() -> str:
         results=ranked_results,
         warnings=warnings,
         job_role=job_role,
+        role_requirements=role_requirements,
         total_candidates=len(ranked_results),
     )
 

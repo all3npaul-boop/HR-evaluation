@@ -30,6 +30,7 @@
         }
         input[type="text"],
         textarea,
+        select,
         input[type="file"] {
             width: 100%;
             margin-top: 8px;
@@ -60,11 +61,14 @@
         <p>Explainable AI-Driven Hiring Evaluation</p>
         <form action="/upload" method="post" enctype="multipart/form-data">
             <label for="job_role">Job Role</label>
-            <input type="text" id="job_role" name="job_role" placeholder="e.g., Data Analyst">
+            <select id="job_role" name="job_role">
+                <option value="">Select a role</option>
+                {% for role in roles %}
+                    <option value="{{ role }}">{{ role }}</option>
+                {% endfor %}
+            </select>
 
-            <label for="job_description">Job Description (list skills and requirements)</label>
-            <textarea id="job_description" name="job_description" rows="5" placeholder="Example: Python, SQL, problem solving, 3 years experience, bachelor"></textarea>
-            <div class="note">Tip: Separate required skills with commas or new lines for best matching.</div>
+            <div class="note">Job requirements load automatically based on the role.</div>
 
             <label for="resumes">Upload Resume PDFs</label>
             <input type="file" id="resumes" name="resumes" accept="application/pdf" multiple>
