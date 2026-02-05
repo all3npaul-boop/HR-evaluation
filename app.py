@@ -208,6 +208,7 @@ SKILL_CLUSTERS = {
     "backend": ["node", "python", "java", "microservices", "api", "backend"],
     "cloud/devops": ["aws", "azure", "gcp", "docker", "kubernetes", "terraform", "ci/cd"],
     "database": ["sql", "nosql", "postgres", "mongodb", "mysql"],
+    "programming fundamentals": ["data structures", "algorithms", "problem solving"],
 }
 
 DEGREE_KEYWORDS = [
@@ -256,6 +257,19 @@ PROJECT_EVIDENCE_KEYWORDS = [
     "ci/cd",
     "pipeline",
     "iot",
+]
+PROJECT_TECH_KEYWORDS = [
+    "react",
+    "node",
+    "django",
+    "fastapi",
+    "kubernetes",
+    "docker",
+    "aws",
+    "azure",
+    "gcp",
+    "terraform",
+    "rest api",
 ]
 BUZZWORDS = [
     "results-driven",
@@ -366,6 +380,57 @@ def extract_resume_evidence(text: str) -> list[str]:
     normalized_text = normalize_text(text)
     evidence = [keyword for keyword in PROJECT_EVIDENCE_KEYWORDS if keyword in normalized_text]
     return sorted(set(evidence))
+
+
+def extract_project_evidence(text: str) -> dict:
+    """Extract project technology and deployment evidence."""
+    normalized_text = normalize_text(text)
+    technologies = [
+        keyword for keyword in PROJECT_TECH_KEYWORDS if keyword in normalized_text
+    ]
+    deployments = [
+        keyword
+        for keyword in ["deployed", "deployment", "production", "ci/cd", "pipeline"]
+        if keyword in normalized_text
+    ]
+    return {
+        "technologies": sorted(set(technologies)),
+        "deployments": sorted(set(deployments)),
+    }
+
+
+def detect_skill_alias(skill: str, text: str) -> bool:
+    """Detect a skill via aliases and exact matches."""
+    normalized_text = normalize_text(text)
+    tokens = set(normalized_text.split())
+    normalized_skill = skill.lower()
+    aliases = SKILL_ALIASES.get(normalized_skill, [])
+    candidates = [normalized_skill, *aliases]
+    return any(
+        candidate in normalized_text
+        if any(char in candidate for char in [" ", ".", "/"])
+        else candidate in tokens
+        for candidate in candidates
+    )
+
+
+def detect_skill_clusters(text: str) -> tuple[list[str], list[str]]:
+    """Detect major skill clusters to prevent false rejection."""
+    normalized_text = normalize_text(text)
+    tokens = set(normalized_text.split())
+    matched = []
+    missing = []
+    for cluster, keywords in SKILL_CLUSTERS.items():
+        if any(
+            keyword in normalized_text
+            if any(char in keyword for char in [" ", ".", "/"])
+            else keyword in tokens
+            for keyword in keywords
+        ):
+            matched.append(cluster)
+        else:
+            missing.append(cluster)
+    return matched, missing
 
 
 def detect_ai_likelihood(text: str) -> dict:
@@ -528,21 +593,11 @@ def evaluate_education(text: str, required_education: str) -> Tuple[bool, float]
 
 def evaluate_required_skills(text: str, required_skills: List[str]) -> Tuple[List[str], List[str], float]:
     """Evaluate required skills using exact and alias matching."""
-    normalized_text = normalize_text(text)
-    tokens = set(normalized_text.split())
     matched = []
     missing = []
 
     for skill in required_skills:
-        normalized_skill = skill.lower()
-        aliases = SKILL_ALIASES.get(normalized_skill, [])
-        candidates = [normalized_skill, *aliases]
-        if any(
-            candidate in normalized_text
-            if any(char in candidate for char in [" ", ".", "/"])
-            else candidate in tokens
-            for candidate in candidates
-        ):
+        if detect_skill_alias(skill, text):
             matched.append(skill)
         else:
             missing.append(skill)
@@ -571,11 +626,76 @@ def decision(score: float, skill_match_ratio: float) -> str:
     return base_decision
 
 
-def enforce_cluster_protection(decision_text: str, matched_clusters: list[str]) -> str:
+def enforce_cluster_protection(
+    decision_text: str,
+    matched_clusters: list[str],
+    project_evidence: list[str],
+    score: float,
+) -> str:
     """Ensure strong cluster alignment prevents outright rejection."""
     if len(matched_clusters) >= 2 and decision_text == "Reject":
         return "Potential"
+    if project_evidence and matched_clusters and decision_text == "Reject" and score >= 40:
+        return "Potential"
     return decision_text
+
+
+def calculate_adaptive_score(
+    skill_match_ratio: float,
+    years_found: int,
+    required_experience: int,
+    education_match: bool,
+    certification_bonus: int,
+    course_bonus: int,
+    project_evidence: dict,
+) -> tuple[float, float, float, float]:
+    """Calculate weighted adaptive score and return component scores."""
+    skills_score = skill_match_ratio * 60
+    if years_found >= required_experience:
+        experience_score = 25
+    elif skill_match_ratio > 0.7:
+        experience_score = 20
+    elif years_found >= max(required_experience - 1, 0):
+        experience_score = 15
+    else:
+        experience_score = 5
+
+    education_score = 15 if education_match else 7
+    evidence_bonus = 2 if project_evidence["deployments"] else 0
+    total_score = skills_score + experience_score + education_score
+    total_score = min(
+        100, total_score + certification_bonus + course_bonus + evidence_bonus
+    )
+    return total_score, skills_score, experience_score, education_score
+
+
+def generate_analytics_summary(candidates: list[dict]) -> dict:
+    """Generate recruiter analytics for dashboards."""
+    total = len(candidates)
+    average_score = (
+        round(sum(candidate["score"] for candidate in candidates) / total) if total else 0
+    )
+    missing_skills: dict[str, int] = {}
+    missing_clusters: dict[str, int] = {}
+    skill_match_total = 0
+    for candidate in candidates:
+        skill_match_total += candidate.get("skill_match_ratio", 0)
+        for skill in candidate.get("missing_skills", []):
+            missing_skills[skill] = missing_skills.get(skill, 0) + 1
+        for cluster in candidate.get("missing_clusters", []):
+            missing_clusters[cluster] = missing_clusters.get(cluster, 0) + 1
+
+    readiness = (
+        round((skill_match_total / total) * 100) if total else 0
+    )
+    return {
+        "average_score": average_score,
+        "missing_skills": sorted(missing_skills.items(), key=lambda item: item[1], reverse=True),
+        "missing_clusters": sorted(
+            missing_clusters.items(), key=lambda item: item[1], reverse=True
+        ),
+        "readiness": readiness,
+    }
 
 
 # Core logic function wrappers (required names)
@@ -600,26 +720,21 @@ def calculate_score(
         resume_text, required_skills
     )
 
-    # Updated weighting: skills 60, experience 25, education 15.
-    skills_score = skill_match_ratio * 60
-
-    years_found = count_years_of_experience(resume_text)
-    # Experience scoring with partial credit (not a strict cutoff).
-    if years_found >= required_experience:
-        experience_score = 25
-    elif years_found >= max(required_experience - 1, 0):
-        experience_score = 15
-    else:
-        experience_score = 5
-
-    education_match, _ = evaluate_education(resume_text, required_education)
-    education_score = 15 if education_match else 7
-
-    total_score = skills_score + experience_score + education_score
     education_evidence = extract_education_and_certifications(resume_text)
     certification_bonus = 5 * len(education_evidence["certifications"])
     course_bonus = 2 * len(education_evidence["courses"])
-    total_score = min(100, total_score + certification_bonus + course_bonus)
+    project_evidence = extract_project_evidence(resume_text)
+    years_found = count_years_of_experience(resume_text)
+    education_match, _ = evaluate_education(resume_text, required_education)
+    total_score, skills_score, experience_score, education_score = calculate_adaptive_score(
+        skill_match_ratio,
+        years_found,
+        required_experience,
+        education_match,
+        certification_bonus,
+        course_bonus,
+        project_evidence,
+    )
 
     return {
         "required_skills": required_skills,
@@ -636,6 +751,7 @@ def calculate_score(
         "education_evidence": education_evidence,
         "certification_bonus": certification_bonus,
         "course_bonus": course_bonus,
+        "project_evidence": project_evidence,
         "total_score": total_score,
     }
 
@@ -691,13 +807,18 @@ def build_explanation(
         if certification_count
         else "No certifications detected."
     )
+    flexibility_sentence = (
+        "Experience gap impact reduced due to strong skill alignment."
+        if total_skills and len(matched_skills) / total_skills > 0.7
+        else "Experience alignment considered with role requirements."
+    )
 
     return (
         f"Role evaluated: {job_role or 'Role not specified'}.\n"
         "Skill alignment is the primary factor in this evaluation.\n"
         f"{skills_sentence}\n"
         f"{clusters_sentence}\n"
-        "Experience is considered but does not automatically disqualify strong skills.\n"
+        f"{flexibility_sentence}\n"
         f"{experience_sentence}\n"
         f"{education_sentence}\n"
         f"{certification_sentence}\n"
@@ -758,11 +879,7 @@ def dashboard() -> str:
     role_requirements = get_role_requirements(selected_role)
     role_results = session.get("role_results", {})
     candidates = role_results.get(selected_role, session.get("last_results", []))
-    average_score = (
-        round(sum(candidate["score"] for candidate in candidates) / len(candidates))
-        if candidates
-        else 0
-    )
+    analytics = generate_analytics_summary(candidates)
     counts = {
         "total": len(candidates),
         "hire": sum(1 for candidate in candidates if candidate["decision"] == "Hire"),
@@ -780,7 +897,7 @@ def dashboard() -> str:
         selected_role=selected_role,
         role_requirements=role_requirements,
         counts=counts,
-        average_score=average_score,
+        analytics=analytics,
         active_page="dashboard",
     )
 
@@ -963,14 +1080,19 @@ def upload() -> str:
             )
             continue
 
-        matched_clusters, missing_clusters = evaluate_skill_clusters(resume_text)
+        matched_clusters, missing_clusters = detect_skill_clusters(resume_text)
         project_evidence = extract_resume_evidence(resume_text)
         authenticity = detect_ai_likelihood(resume_text)
         score_data = calculate_score(resume_text, job_description, role_requirements)
         decision_text = decision(
             score_data["total_score"], score_data["skill_match_ratio"]
         )
-        decision_text = enforce_cluster_protection(decision_text, matched_clusters)
+        decision_text = enforce_cluster_protection(
+            decision_text,
+            matched_clusters,
+            project_evidence,
+            score_data["total_score"],
+        )
         explanation = explain(
             score_data["matched_skills"],
             len(score_data["required_skills"]),
@@ -997,6 +1119,7 @@ def upload() -> str:
                 "matched_clusters": matched_clusters,
                 "missing_clusters": missing_clusters,
                 "project_evidence": project_evidence,
+                "project_detail": score_data["project_evidence"],
                 "authenticity": authenticity,
                 "education_match": score_data["education_match"],
                 "education_evidence": score_data["education_evidence"],

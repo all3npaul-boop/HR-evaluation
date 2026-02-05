@@ -123,6 +123,16 @@
                     {% else %}
                         <span class="text-muted">No project evidence detected.</span>
                     {% endif %}
+                    {% if candidate.project_detail %}
+                        <div class="mt-2">
+                            {% for tech in candidate.project_detail.technologies %}
+                                <span class="badge bg-primary me-1 mb-1">{{ tech }}</span>
+                            {% endfor %}
+                            {% for deploy in candidate.project_detail.deployments %}
+                                <span class="badge bg-success me-1 mb-1">{{ deploy }}</span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                 </div>
             </div>
 

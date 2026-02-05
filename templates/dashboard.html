@@ -59,7 +59,7 @@
         <div class="card shadow-soft border-0">
             <div class="card-body">
                 <h6 class="text-muted">Average Score</h6>
-                <h3>{{ average_score }}</h3>
+                <h3>{{ analytics.average_score }}</h3>
             </div>
         </div>
     </div>
@@ -67,7 +67,47 @@
 
 <div class="card shadow-soft border-0">
     <div class="card-body">
-        <h5 class="card-title">Job Role Requirements</h5>
+        <h5 class="card-title">Hiring Analytics</h5>
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <h6 class="text-muted">Skill Gap Analytics</h6>
+                {% if analytics.missing_skills %}
+                    <ul class="list-group list-group-flush">
+                        {% for skill, count in analytics.missing_skills[:5] %}
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>{{ skill }}</span>
+                                <span class="badge bg-danger">{{ count }}</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted mb-0">No missing skills detected.</p>
+                {% endif %}
+            </div>
+            <div class="col-md-6">
+                <h6 class="text-muted">Missing Skill Clusters</h6>
+                {% if analytics.missing_clusters %}
+                    <ul class="list-group list-group-flush">
+                        {% for cluster, count in analytics.missing_clusters[:5] %}
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-uppercase">{{ cluster }}</span>
+                                <span class="badge bg-warning text-dark">{{ count }}</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted mb-0">All clusters are covered.</p>
+                {% endif %}
+            </div>
+        </div>
+        <div class="mb-3">
+            <h6 class="text-muted">Hiring Readiness Score</h6>
+            <div class="progress">
+                <div class="progress-bar bg-success" style="width: {{ analytics.readiness }}%"></div>
+            </div>
+            <small class="text-muted">{{ analytics.readiness }}% average skill match across applicants.</small>
+        </div>
+        <h5 class="card-title mt-4">Job Role Requirements</h5>
         <div class="row g-3">
             <div class="col-md-6">
                 {% if role_requirements and role_requirements.skills %}
