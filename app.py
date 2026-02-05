@@ -96,6 +96,72 @@ JOB_ROLES = {
         "experience": 2,
         "education": "Computer Science",
     },
+    "Software Engineer": {
+        "fundamentals": [
+            "Problem solving and debugging",
+            "Data structures and algorithms",
+            "System design exposure",
+            "Code quality and testing fundamentals",
+        ],
+        "skills": ["python", "java", "data structures", "algorithms", "git"],
+        "experience": 2,
+        "education": "Computer Science / Software Engineering",
+    },
+    "Backend Microservices Engineer": {
+        "fundamentals": [
+            "API scalability",
+            "Distributed systems thinking",
+            "Event driven architecture",
+            "Service observability",
+        ],
+        "skills": ["microservices", "kafka", "node.js", "python", "sql/nosql"],
+        "experience": 3,
+        "education": "Computer Science",
+    },
+    "Platform Engineer": {
+        "fundamentals": [
+            "Infrastructure automation",
+            "Cloud reliability",
+            "Observability systems",
+            "Service resilience practices",
+        ],
+        "skills": ["terraform", "kubernetes", "cloud platforms", "monitoring", "ci/cd"],
+        "experience": 3,
+        "education": "Computer Science / IT",
+    },
+    "AI/ML Engineer": {
+        "fundamentals": [
+            "Model development lifecycle",
+            "Data pipelines",
+            "ML deployment practices",
+            "Experiment tracking",
+        ],
+        "skills": ["python", "machine learning", "model deployment", "feature engineering"],
+        "experience": 3,
+        "education": "Computer Science / Data Science",
+    },
+    "QA Automation Engineer": {
+        "fundamentals": [
+            "Test automation strategy",
+            "CI testing pipelines",
+            "Performance testing",
+            "Defect triage",
+        ],
+        "skills": ["selenium", "cypress", "api testing", "ci/cd", "python"],
+        "experience": 2,
+        "education": "Computer Science / IT",
+    },
+    "Site Reliability Engineer": {
+        "fundamentals": [
+            "System uptime focus",
+            "Monitoring and alerting",
+            "Failure recovery",
+            "Incident response",
+        ],
+        "skills": ["monitoring", "linux", "cloud platforms", "sre", "automation"],
+        "experience": 3,
+        "education": "Computer Science / IT",
+    },
 }
 
 # Skill aliases for stronger matching.
@@ -130,6 +196,18 @@ SKILL_ALIASES = {
     "aws/azure/gcp": ["aws", "azure", "gcp", "amazon web services", "google cloud"],
     "kotlin/swift": ["kotlin", "swift", "ios", "android"],
     "react native": ["reactnative", "react-native"],
+    "machine learning": ["ml", "machine learning", "deep learning"],
+    "model deployment": ["mlops", "deployment", "model serving"],
+    "monitoring": ["prometheus", "grafana", "monitoring", "observability"],
+    "ci/cd": ["ci/cd", "continuous integration", "continuous delivery"],
+    "api testing": ["postman", "api testing"],
+}
+
+SKILL_CLUSTERS = {
+    "frontend": ["react", "typescript", "html", "css", "ui", "frontend"],
+    "backend": ["node", "python", "java", "microservices", "api", "backend"],
+    "cloud/devops": ["aws", "azure", "gcp", "docker", "kubernetes", "terraform", "ci/cd"],
+    "database": ["sql", "nosql", "postgres", "mongodb", "mysql"],
 }
 
 DEGREE_KEYWORDS = [
@@ -163,6 +241,31 @@ COURSE_KEYWORDS = [
     "linkedin learning",
     "online course",
     "certificate",
+]
+PROJECT_EVIDENCE_KEYWORDS = [
+    "github",
+    "portfolio",
+    "hackathon",
+    "open source",
+    "competitive coding",
+    "codeforces",
+    "leetcode",
+    "deployed",
+    "deployment",
+    "production",
+    "ci/cd",
+    "pipeline",
+    "iot",
+]
+BUZZWORDS = [
+    "synergy",
+    "disruptive",
+    "blockchain",
+    "metaverse",
+    "genai",
+    "ai-driven",
+    "paradigm",
+    "revolutionary",
 ]
 
 app = Flask(__name__)
@@ -260,6 +363,71 @@ def extract_education_and_certifications(text: str) -> dict:
     }
 
 
+def extract_resume_evidence(text: str) -> list[str]:
+    """Extract notable resume evidence signals."""
+    normalized_text = normalize_text(text)
+    evidence = [keyword for keyword in PROJECT_EVIDENCE_KEYWORDS if keyword in normalized_text]
+    return sorted(set(evidence))
+
+
+def analyze_authenticity(text: str) -> dict:
+    """Heuristic-based resume authenticity detector."""
+    normalized_text = normalize_text(text)
+    words = normalized_text.split()
+    if not words:
+        return {
+            "label": "Possibly AI",
+            "repetition_score": 0,
+            "buzzword_density": 0,
+            "generic_project_score": 0,
+        }
+
+    word_counts: dict[str, int] = {}
+    for word in words:
+        word_counts[word] = word_counts.get(word, 0) + 1
+    repeated_words = sum(1 for count in word_counts.values() if count > 5)
+    repetition_score = round(repeated_words / max(len(word_counts), 1), 2)
+    buzzword_hits = sum(1 for word in BUZZWORDS if word in normalized_text)
+    buzzword_density = round(buzzword_hits / max(len(words), 1), 2)
+
+    generic_project_phrases = ["worked on project", "various projects", "team project"]
+    generic_project_score = (
+        1 if any(phrase in normalized_text for phrase in generic_project_phrases) else 0
+    )
+
+    if repetition_score > 0.15 or buzzword_density > 0.05 or generic_project_score:
+        label = "Likely AI"
+    elif repetition_score > 0.08 or buzzword_density > 0.03:
+        label = "Possibly AI"
+    else:
+        label = "Likely Human"
+    return {
+        "label": label,
+        "repetition_score": repetition_score,
+        "buzzword_density": buzzword_density,
+        "generic_project_score": generic_project_score,
+    }
+
+
+def evaluate_skill_clusters(text: str) -> tuple[list[str], list[str]]:
+    """Evaluate skill clusters to reduce over-rejection."""
+    normalized_text = normalize_text(text)
+    tokens = set(normalized_text.split())
+    matched = []
+    missing = []
+    for cluster, keywords in SKILL_CLUSTERS.items():
+        if any(
+            keyword in normalized_text
+            if any(char in keyword for char in [" ", ".", "/"])
+            else keyword in tokens
+            for keyword in keywords
+        ):
+            matched.append(cluster)
+        else:
+            missing.append(cluster)
+    return matched, missing
+
+
 # Core logic function wrappers (required names)
 
 def extract_text(pdf_file) -> str:
@@ -353,6 +521,13 @@ def decision(score: float, skill_match_ratio: float) -> str:
     return base_decision
 
 
+def enforce_cluster_protection(decision_text: str, matched_clusters: list[str]) -> str:
+    """Ensure strong cluster alignment prevents outright rejection."""
+    if len(matched_clusters) >= 2 and decision_text == "Reject":
+        return "Potential"
+    return decision_text
+
+
 # Core logic function wrappers (required names)
 
 def calculate_score(
@@ -392,7 +567,9 @@ def calculate_score(
 
     total_score = skills_score + experience_score + education_score
     education_evidence = extract_education_and_certifications(resume_text)
-    certification_bonus = 5 if education_evidence["certifications"] else 0
+    certification_bonus = 5 * len(education_evidence["certifications"])
+    course_bonus = 2 * len(education_evidence["courses"])
+    total_score = min(100, total_score + certification_bonus + course_bonus)
 
     return {
         "required_skills": required_skills,
@@ -408,6 +585,7 @@ def calculate_score(
         "required_education": required_education,
         "education_evidence": education_evidence,
         "certification_bonus": certification_bonus,
+        "course_bonus": course_bonus,
         "total_score": total_score,
     }
 
@@ -421,6 +599,9 @@ def build_explanation(
     total_score: float,
     decision_text: str,
     job_role: str,
+    matched_clusters: list[str],
+    project_evidence: list[str],
+    certification_count: int,
 ) -> str:
     """Create a human-readable explanation for the evaluation."""
     skills_list = ", ".join(matched_skills) if matched_skills else "no listed skills"
@@ -445,14 +626,32 @@ def build_explanation(
         if education_match
         else "Education is below the stated requirement."
     )
+    clusters_sentence = (
+        f"Matched skill clusters: {', '.join(matched_clusters)}."
+        if matched_clusters
+        else "Skill clusters need reinforcement."
+    )
+    project_sentence = (
+        f"Project evidence detected: {', '.join(project_evidence)}."
+        if project_evidence
+        else "No project/deployment evidence detected."
+    )
+    certification_sentence = (
+        "Certifications present in resume."
+        if certification_count
+        else "No certifications detected."
+    )
 
     return (
         f"Role evaluated: {job_role or 'Role not specified'}.\n"
         "Skill alignment is the primary factor in this evaluation.\n"
         f"{skills_sentence}\n"
+        f"{clusters_sentence}\n"
         "Experience is considered but does not automatically disqualify strong skills.\n"
         f"{experience_sentence}\n"
         f"{education_sentence}\n"
+        f"{certification_sentence}\n"
+        f"{project_sentence}\n"
         f"Final score: {round(total_score)}/100 — Decision: {decision_text}."
     )
 
@@ -468,6 +667,9 @@ def explain(
     total_score: float,
     decision_text: str,
     job_role: str,
+    matched_clusters: list[str],
+    project_evidence: list[str],
+    certification_count: int,
 ) -> str:
     """Wrapper for explanation generation."""
     return build_explanation(
@@ -479,6 +681,9 @@ def explain(
         total_score,
         decision_text,
         job_role,
+        matched_clusters,
+        project_evidence,
+        certification_count,
     )
 
 
@@ -503,6 +708,11 @@ def dashboard() -> str:
     role_requirements = get_role_requirements(selected_role)
     role_results = session.get("role_results", {})
     candidates = role_results.get(selected_role, session.get("last_results", []))
+    average_score = (
+        round(sum(candidate["score"] for candidate in candidates) / len(candidates))
+        if candidates
+        else 0
+    )
     counts = {
         "total": len(candidates),
         "hire": sum(1 for candidate in candidates if candidate["decision"] == "Hire"),
@@ -520,6 +730,7 @@ def dashboard() -> str:
         selected_role=selected_role,
         role_requirements=role_requirements,
         counts=counts,
+        average_score=average_score,
         active_page="dashboard",
     )
 
@@ -702,10 +913,14 @@ def upload() -> str:
             )
             continue
 
+        matched_clusters, missing_clusters = evaluate_skill_clusters(resume_text)
+        project_evidence = extract_resume_evidence(resume_text)
+        authenticity = analyze_authenticity(resume_text)
         score_data = calculate_score(resume_text, job_description, role_requirements)
         decision_text = decision(
             score_data["total_score"], score_data["skill_match_ratio"]
         )
+        decision_text = enforce_cluster_protection(decision_text, matched_clusters)
         explanation = explain(
             score_data["matched_skills"],
             len(score_data["required_skills"]),
@@ -715,6 +930,9 @@ def upload() -> str:
             score_data["total_score"],
             decision_text,
             job_role,
+            matched_clusters,
+            project_evidence,
+            len(score_data["education_evidence"]["certifications"]),
         )
 
         results.append(
@@ -726,9 +944,14 @@ def upload() -> str:
                 "skill_match_ratio": round(score_data["skill_match_ratio"], 2),
                 "matched_skills": score_data["matched_skills"],
                 "missing_skills": score_data["missing_skills"],
+                "matched_clusters": matched_clusters,
+                "missing_clusters": missing_clusters,
+                "project_evidence": project_evidence,
+                "authenticity": authenticity,
                 "education_match": score_data["education_match"],
                 "education_evidence": score_data["education_evidence"],
                 "certification_bonus": score_data["certification_bonus"],
+                "course_bonus": score_data["course_bonus"],
                 "breakdown": {
                     "skills": round(score_data["skills_score"]),
                     "experience": round(score_data["experience_score"]),

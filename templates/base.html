@@ -12,12 +12,35 @@
             color: #0b1f3a;
         }
         .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
             min-height: 100vh;
+            width: 250px;
             border-right: 1px solid #e2e8f0;
             transition: width 0.2s ease;
+            background-color: #ffffff;
+            z-index: 1030;
         }
         .sidebar.collapsed {
-            width: 80px;
+            width: 70px;
+        }
+        .sidebar .nav-link .sidebar-label {
+            transition: opacity 0.2s ease;
+        }
+        .sidebar.collapsed .sidebar-label {
+            opacity: 0;
+            width: 0;
+            overflow: hidden;
+            display: inline-block;
+        }
+        .content-wrapper {
+            min-height: 100vh;
+            margin-left: 250px;
+            transition: margin-left 0.2s ease;
+        }
+        .content-wrapper.compact {
+            margin-left: 70px;
         }
         .sidebar .nav-link {
             color: #0b1f3a;
@@ -37,8 +60,16 @@
             border: 1px solid #dc3545;
             color: #dc3545;
         }
-        .content-wrapper {
-            min-height: 100vh;
+        @media (max-width: 992px) {
+            .sidebar {
+                position: relative;
+                width: 100%;
+                min-height: auto;
+            }
+            .content-wrapper,
+            .content-wrapper.compact {
+                margin-left: 0;
+            }
         }
         .shadow-soft {
             box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
@@ -49,7 +80,7 @@
 <body>
     <div class="container-fluid">
         <div class="row">
-            <nav id="sidebar" class="col-md-3 col-lg-2 sidebar p-4">
+            <nav id="sidebar" class="sidebar p-4">
                 <div class="d-flex align-items-center justify-content-between mb-4">
                     <h5 class="mb-0">CYGNUSA</h5>
                     <button class="btn btn-sm btn-outline-secondary" id="toggleSidebar" type="button">
@@ -58,26 +89,26 @@
                 </div>
                 <div class="nav flex-column gap-2">
                     <a class="nav-link {% if active_page == 'dashboard' %}active{% endif %}" href="/dashboard">
-                        <i class="bi bi-speedometer2 me-2"></i>Dashboard
+                        <i class="bi bi-speedometer2 me-2"></i><span class="sidebar-label">Dashboard</span>
                     </a>
                     <a class="nav-link {% if active_page == 'shortlist' %}active{% endif %}" href="/shortlist">
-                        <i class="bi bi-list-check me-2"></i>Shortlisting
+                        <i class="bi bi-list-check me-2"></i><span class="sidebar-label">Shortlisting</span>
                         <span class="badge bg-success ms-2">{{ candidate_counts.hire }}</span>
                         <span class="badge bg-warning text-dark ms-1">{{ candidate_counts.potential }}</span>
                         <span class="badge bg-danger ms-1">{{ candidate_counts.reject }}</span>
                     </a>
                     <a class="nav-link {% if active_page == 'candidates' %}active{% endif %}" href="/candidates">
-                        <i class="bi bi-people me-2"></i>Candidates
+                        <i class="bi bi-people me-2"></i><span class="sidebar-label">Candidates</span>
                     </a>
                     <a class="nav-link {% if active_page == 'roles' %}active{% endif %}" href="/roles">
-                        <i class="bi bi-briefcase me-2"></i>Job Roles
+                        <i class="bi bi-briefcase me-2"></i><span class="sidebar-label">Job Roles</span>
                     </a>
                     <a class="nav-link {% if active_page == 'insights' %}active{% endif %}" href="/insights">
-                        <i class="bi bi-bar-chart-line me-2"></i>Insights
+                        <i class="bi bi-bar-chart-line me-2"></i><span class="sidebar-label">Insights</span>
                     </a>
                 </div>
             </nav>
-            <main class="col-md-9 col-lg-10 p-0 content-wrapper">
+            <main id="contentWrapper" class="content-wrapper p-0">
                 <nav class="navbar navbar-light bg-white border-bottom px-4 py-3">
                     <div class="d-flex align-items-center gap-3">
                         <h4 class="mb-0">CYGNUSA Elite-Hire</h4>
@@ -104,10 +135,18 @@
     </div>
     <script>
         const sidebar = document.getElementById("sidebar");
+        const contentWrapper = document.getElementById("contentWrapper");
         const toggleButton = document.getElementById("toggleSidebar");
+        const storedState = localStorage.getItem("sidebarCollapsed");
+        if (storedState === "true") {
+            sidebar.classList.add("collapsed");
+            contentWrapper.classList.add("compact");
+        }
         if (toggleButton) {
             toggleButton.addEventListener("click", () => {
                 sidebar.classList.toggle("collapsed");
+                contentWrapper.classList.toggle("compact");
+                localStorage.setItem("sidebarCollapsed", sidebar.classList.contains("collapsed"));
             });
         }
         const globalRoleSelect = document.getElementById("globalRoleSelect");

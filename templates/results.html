@@ -59,6 +59,7 @@
                 <th>Candidate</th>
                 <th>Score</th>
                 <th>Decision</th>
+                <th>Authenticity</th>
                 <th></th>
             </tr>
         </thead>
@@ -75,6 +76,13 @@
                         <span class="badge bg-warning text-dark">Potential</span>
                     {% else %}
                         <span class="badge bg-danger">Reject</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if result.authenticity %}
+                        <span class="badge bg-secondary">{{ result.authenticity.label }}</span>
+                    {% else %}
+                        <span class="text-muted">-</span>
                     {% endif %}
                 </td>
                 <td>
