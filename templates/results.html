@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYGNUSA Elite-Hire Results</title>
+    <style>
+        body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #ffffff;
+            color: #0b1f3a;
+            margin: 0;
+            padding: 40px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+        }
+        th {
+            background-color: #f8fafc;
+        }
+        .card {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .warning {
+            background-color: #fff7ed;
+            border: 1px solid #fed7aa;
+            color: #9a3412;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 24px;
+            color: #0b1f3a;
+            text-decoration: none;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Candidate Ranking Dashboard</h1>
+        <p>Role: {{ job_role if job_role else "Not specified" }}</p>
+        <p>Total candidates processed: {{ total_candidates }}</p>
+
+        {% if warnings %}
+            {% for warning in warnings %}
+                <div class="warning">{{ warning }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Candidate Name</th>
+                    <th>Score</th>
+                    <th>Decision</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in results %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ result.name }}</td>
+                    <td>{{ result.score }}</td>
+                    <td>{{ result.decision }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% for result in results %}
+            <div class="card">
+                <h3>{{ loop.index }}. {{ result.name }}</h3>
+                <p><strong>Score:</strong> {{ result.score }} / 100</p>
+                <p><strong>Decision:</strong> {{ result.decision }}</p>
+                <p><strong>Score Breakdown:</strong></p>
+                <ul>
+                    <li>Skills Score: {{ result.breakdown.skills }} / 50</li>
+                    <li>Experience Score: {{ result.breakdown.experience }} / 30</li>
+                    <li>Education Score: {{ result.breakdown.education }} / 20</li>
+                </ul>
+                <p><strong>Explanation:</strong></p>
+                <pre>{{ result.explanation }}</pre>
+            </div>
+        {% endfor %}
+
+        <a class="back-link" href="/">&#8592; Upload more resumes</a>
+    </div>
+</body>
+</html>

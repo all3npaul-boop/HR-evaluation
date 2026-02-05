@@ -1,0 +1,259 @@
+"""CYGNUSA Elite-Hire: Explainable AI-Driven Hiring Evaluation (Flask)."""
+
+from __future__ import annotations
+
+import re
+from typing import List, Tuple
+
+import pdfplumber
+from flask import Flask, redirect, render_template, request, url_for
+
+DEFAULT_JD_SKILLS = ["python", "sql", "data structures", "problem solving"]
+DEFAULT_REQUIRED_EXPERIENCE = 3  # years
+DEFAULT_REQUIRED_EDUCATION = "bachelor"
+
+app = Flask(__name__)
+
+
+def extract_text_from_pdf(pdf_file) -> str:
+    """Extract text from a PDF file-like object and normalize to lowercase."""
+    if pdf_file is None:
+        return ""
+
+    try:
+        with pdfplumber.open(pdf_file) as pdf:
+            pages = [page.extract_text() or "" for page in pdf.pages]
+        return "\n".join(pages).lower()
+    except Exception:
+        return ""
+
+
+# Core logic function wrappers (required names)
+
+def extract_text(pdf_file) -> str:
+    """Wrapper for PDF text extraction."""
+    return extract_text_from_pdf(pdf_file)
+
+
+def count_years_of_experience(text: str) -> int:
+    """Find the largest numeric years-of-experience mention in the text."""
+    if not text:
+        return 0
+
+    matches = re.findall(r"(\d+)\s*\+?\s*years?", text)
+    years = [int(match) for match in matches] if matches else [0]
+    return max(years)
+
+
+def extract_required_skills(job_description: str, fallback_skills: List[str]) -> List[str]:
+    """Extract required skills from a job description (comma or newline-separated)."""
+    if not job_description.strip():
+        return fallback_skills
+
+    split_candidates = re.split(r"[,\n;/]+", job_description.lower())
+    cleaned = [skill.strip() for skill in split_candidates if skill.strip()]
+    return cleaned or fallback_skills
+
+
+def evaluate_skills(text: str, skills: List[str]) -> Tuple[List[str], float]:
+    """Return matched skills and the skills score out of 50."""
+    matched = [skill for skill in skills if skill in text]
+    score = (len(matched) / len(skills)) * 50 if skills else 0
+    return matched, score
+
+
+def evaluate_experience(text: str, required_years: int) -> Tuple[int, float]:
+    """Return years found and experience score out of 30."""
+    years_found = count_years_of_experience(text)
+    score = 30 if years_found >= required_years else 15
+    return years_found, score
+
+
+def evaluate_education(text: str, required_education: str) -> Tuple[bool, float]:
+    """Return education match and education score out of 20."""
+    matches = required_education.lower() in text
+    score = 20 if matches else 10
+    return matches, score
+
+
+def decide(score: float) -> str:
+    """Determine hiring decision based on total score."""
+    if score >= 75:
+        return "Hire"
+    if score >= 50:
+        return "Potential"
+    return "Reject"
+
+
+# Core logic function wrappers (required names)
+
+def decision(score: float) -> str:
+    """Wrapper for decision logic."""
+    return decide(score)
+
+
+# Core logic function wrappers (required names)
+
+def calculate_score(
+    resume_text: str,
+    job_description: str,
+) -> dict:
+    """Calculate score and breakdown for a resume based on the job description."""
+    required_skills = extract_required_skills(job_description, DEFAULT_JD_SKILLS)
+    matched_skills, skills_score = evaluate_skills(resume_text, required_skills)
+    years_found, experience_score = evaluate_experience(
+        resume_text, DEFAULT_REQUIRED_EXPERIENCE
+    )
+    education_match, education_score = evaluate_education(
+        resume_text, DEFAULT_REQUIRED_EDUCATION
+    )
+
+    total_score = skills_score + experience_score + education_score
+
+    return {
+        "required_skills": required_skills,
+        "matched_skills": matched_skills,
+        "skills_score": skills_score,
+        "years_found": years_found,
+        "experience_score": experience_score,
+        "education_score": education_score,
+        "education_match": education_match,
+        "total_score": total_score,
+    }
+
+
+def build_explanation(
+    matched_skills: List[str],
+    total_skills: int,
+    years_found: int,
+    experience_required: int,
+    education_match: bool,
+    total_score: float,
+    decision_text: str,
+    job_role: str,
+) -> str:
+    """Create a human-readable explanation for the evaluation."""
+    skills_list = ", ".join(matched_skills) if matched_skills else "no listed skills"
+    skills_sentence = (
+        f"Candidate matches {len(matched_skills)} out of {total_skills} required "
+        f"skills including {skills_list}."
+    )
+
+    if years_found >= experience_required:
+        experience_sentence = (
+            "Experience meets the required threshold "
+            f"with {years_found} years mentioned."
+        )
+    else:
+        experience_sentence = (
+            "Experience is slightly below the required threshold "
+            f"with {years_found} years mentioned."
+        )
+
+    education_sentence = (
+        "Education aligns with role expectations."
+        if education_match
+        else "Education is below the stated requirement."
+    )
+
+    return (
+        f"Role evaluated: {job_role or 'Role not specified'}.\n"
+        f"{skills_sentence}\n"
+        f"{experience_sentence}\n"
+        f"{education_sentence}\n"
+        f"Final score: {round(total_score)}/100 — Decision: {decision_text}."
+    )
+
+
+# Core logic function wrappers (required names)
+
+def explain(
+    matched_skills: List[str],
+    total_skills: int,
+    years_found: int,
+    experience_required: int,
+    education_match: bool,
+    total_score: float,
+    decision_text: str,
+    job_role: str,
+) -> str:
+    """Wrapper for explanation generation."""
+    return build_explanation(
+        matched_skills,
+        total_skills,
+        years_found,
+        experience_required,
+        education_match,
+        total_score,
+        decision_text,
+        job_role,
+    )
+
+
+@app.route("/")
+def index() -> str:
+    """Render the upload form."""
+    return render_template("index.html")
+
+
+@app.route("/upload", methods=["POST"])
+def upload() -> str:
+    """Handle resume uploads and render ranking results."""
+    job_role = request.form.get("job_role", "").strip()
+    job_description = request.form.get("job_description", "").strip()
+
+    uploaded_files = request.files.getlist("resumes")
+    if not uploaded_files:
+        return redirect(url_for("index"))
+
+    results = []
+    warnings = []
+
+    for uploaded_file in uploaded_files:
+        resume_text = extract_text(uploaded_file)
+        if not resume_text:
+            warnings.append(
+                f"We couldn't extract text from {uploaded_file.filename}."
+            )
+            continue
+
+        score_data = calculate_score(resume_text, job_description)
+        decision_text = decision(score_data["total_score"])
+        explanation = explain(
+            score_data["matched_skills"],
+            len(score_data["required_skills"]),
+            score_data["years_found"],
+            DEFAULT_REQUIRED_EXPERIENCE,
+            score_data["education_match"],
+            score_data["total_score"],
+            decision_text,
+            job_role,
+        )
+
+        results.append(
+            {
+                "name": uploaded_file.filename,
+                "score": round(score_data["total_score"]),
+                "decision": decision_text,
+                "explanation": explanation,
+                "breakdown": {
+                    "skills": round(score_data["skills_score"]),
+                    "experience": round(score_data["experience_score"]),
+                    "education": round(score_data["education_score"]),
+                },
+            }
+        )
+
+    ranked_results = sorted(results, key=lambda item: item["score"], reverse=True)
+
+    return render_template(
+        "results.html",
+        results=ranked_results,
+        warnings=warnings,
+        job_role=job_role,
+        total_candidates=len(ranked_results),
+    )
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
