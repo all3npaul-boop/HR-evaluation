@@ -221,9 +221,29 @@ def get_role_requirements(role: str) -> dict:
     return {
         "fundamentals": custom.get("fundamentals")
         or base_requirements.get("fundamentals", DEFAULT_FUNDAMENTALS),
-        "skills": custom.get("skills") or base_requirements.get("skills", DEFAULT_JD_SKILLS),
-        "experience": custom.get("experience", base_requirements.get("experience", DEFAULT_REQUIRED_EXPERIENCE)),
-        "education": custom.get("education", base_requirements.get("education", DEFAULT_REQUIRED_EDUCATION)),
+        "skills": custom.get("skills")
+        or base_requirements.get("skills", DEFAULT_JD_SKILLS),
+        "experience": custom.get(
+            "experience", base_requirements.get("experience", DEFAULT_REQUIRED_EXPERIENCE)
+        ),
+        "education": custom.get(
+            "education", base_requirements.get("education", DEFAULT_REQUIRED_EDUCATION)
+        ),
+    }
+
+
+def get_default_role_requirements(role: str) -> dict:
+    """Return role requirements without applying overrides (used for upload form)."""
+    base_requirements = JOB_ROLES.get(role, {})
+    return {
+        "fundamentals": base_requirements.get("fundamentals", DEFAULT_FUNDAMENTALS),
+        "skills": base_requirements.get("skills", DEFAULT_JD_SKILLS),
+        "experience": base_requirements.get(
+            "experience", DEFAULT_REQUIRED_EXPERIENCE
+        ),
+        "education": base_requirements.get(
+            "education", DEFAULT_REQUIRED_EDUCATION
+        ),
     }
 
 
@@ -471,7 +491,7 @@ def index() -> str:
         roles=sorted(JOB_ROLES.keys()),
         roles_data=JOB_ROLES,
         selected_role=selected_role,
-        role_requirements=get_role_requirements(selected_role),
+        role_requirements=get_default_role_requirements(selected_role),
         active_page="upload",
     )
 
@@ -574,47 +594,21 @@ def candidates() -> str:
 def roles() -> str:
     """Render the job roles page."""
     selected_role = session.get("selected_role", "")
-    role_requirements = get_role_requirements(selected_role)
+    role_requirements = get_default_role_requirements(selected_role)
     return render_template(
         "roles.html",
         roles=sorted(JOB_ROLES.keys()),
         roles_data=JOB_ROLES,
         selected_role=selected_role,
         role_requirements=role_requirements,
-        fundamentals=role_requirements.get("fundamentals", DEFAULT_FUNDAMENTALS),
         active_page="roles",
     )
 
 
 @app.route("/roles/update", methods=["POST"])
 def update_role() -> str:
-    """Update role requirements based on employer edits."""
-    role = request.form.get("job_role", "").strip()
-    if not role:
-        return redirect(url_for("roles"))
-
-    skills_raw = request.form.get("skills", "")
-    fundamentals_raw = request.form.get("fundamentals", "")
-    experience_raw = request.form.get("experience", "").strip()
-    education = request.form.get("education", "").strip()
-
-    skills = [skill.strip().lower() for skill in skills_raw.split(",") if skill.strip()]
-    fundamentals = [
-        item.strip() for item in fundamentals_raw.split("\n") if item.strip()
-    ]
-    experience = int(experience_raw) if experience_raw.isdigit() else DEFAULT_REQUIRED_EXPERIENCE
-    education_value = education or DEFAULT_REQUIRED_EDUCATION
-
-    custom_roles = session.get("custom_roles", {})
-    custom_roles[role] = {
-        "skills": skills or JOB_ROLES.get(role, {}).get("skills", DEFAULT_JD_SKILLS),
-        "fundamentals": fundamentals or JOB_ROLES.get(role, {}).get("fundamentals", DEFAULT_FUNDAMENTALS),
-        "experience": experience,
-        "education": education_value,
-    }
-    session["custom_roles"] = custom_roles
-    session["selected_role"] = role
-    return redirect(url_for("roles"))
+    """Backward-compatible route (editing moved to upload page)."""
+    return redirect(url_for("index"))
 
 
 @app.route("/insights")
@@ -672,13 +666,26 @@ def upload() -> str:
     job_description = ""
     if job_role:
         session["selected_role"] = job_role
-    role_requirements = get_role_requirements(job_role)
-    if not role_requirements:
-        role_requirements = {
-            "skills": DEFAULT_JD_SKILLS,
-            "experience": DEFAULT_REQUIRED_EXPERIENCE,
-            "education": DEFAULT_REQUIRED_EDUCATION,
-        }
+    default_requirements = get_default_role_requirements(job_role)
+    # JD override workflow: accept employer edits from the upload form only.
+    skills_raw = request.form.get("skills", "")
+    fundamentals_raw = request.form.get("fundamentals", "")
+    experience_raw = request.form.get("experience", "").strip()
+    education = request.form.get("education", "").strip()
+
+    skills = [skill.strip().lower() for skill in skills_raw.split(",") if skill.strip()]
+    fundamentals = [
+        item.strip() for item in fundamentals_raw.split("\n") if item.strip()
+    ]
+    experience = int(experience_raw) if experience_raw.isdigit() else default_requirements["experience"]
+    education_value = education or default_requirements["education"]
+
+    role_requirements = {
+        "skills": skills or default_requirements["skills"],
+        "fundamentals": fundamentals or default_requirements["fundamentals"],
+        "experience": experience,
+        "education": education_value,
+    }
 
     uploaded_files = request.files.getlist("resumes")
     if not uploaded_files:
