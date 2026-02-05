@@ -156,14 +156,15 @@
             </div>
 
             <div class="mt-3">
-                <h6 class="text-muted">Authenticity Check</h6>
+                <h6 class="text-muted">Writing Authenticity Indicator</h6>
                 {% if candidate.authenticity %}
                     <span class="badge bg-secondary">{{ candidate.authenticity.label }}</span>
-                    <small class="text-muted ms-2">
-                        Repetition: {{ candidate.authenticity.repetition_score }},
-                        Buzzword Density: {{ candidate.authenticity.buzzword_density }},
-                        Generic Projects: {{ candidate.authenticity.generic_project_score }}
-                    </small>
+                    <span class="ms-2 text-muted">Confidence Level: {{ candidate.authenticity.score }} / 100</span>
+                    <ul class="mt-2 mb-0">
+                        {% for reason in candidate.authenticity.reasons %}
+                            <li class="text-muted">{{ reason }}</li>
+                        {% endfor %}
+                    </ul>
                 {% else %}
                     <span class="text-muted">No authenticity signals available.</span>
                 {% endif %}

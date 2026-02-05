@@ -258,14 +258,12 @@ PROJECT_EVIDENCE_KEYWORDS = [
     "iot",
 ]
 BUZZWORDS = [
+    "results-driven",
+    "dynamic professional",
+    "highly motivated",
+    "leveraged cutting edge",
+    "innovative solutions",
     "synergy",
-    "disruptive",
-    "blockchain",
-    "metaverse",
-    "genai",
-    "ai-driven",
-    "paradigm",
-    "revolutionary",
 ]
 
 app = Flask(__name__)
@@ -370,42 +368,94 @@ def extract_resume_evidence(text: str) -> list[str]:
     return sorted(set(evidence))
 
 
-def analyze_authenticity(text: str) -> dict:
-    """Heuristic-based resume authenticity detector."""
+def detect_ai_likelihood(text: str) -> dict:
+    """Probabilistic AI likelihood analysis for resume text."""
     normalized_text = normalize_text(text)
+    sentences = [s.strip() for s in re.split(r"[.!?]+", normalized_text) if s.strip()]
     words = normalized_text.split()
     if not words:
         return {
-            "label": "Possibly AI",
-            "repetition_score": 0,
-            "buzzword_density": 0,
-            "generic_project_score": 0,
+            "score": 50,
+            "label": "Possibly AI Assisted",
+            "reasons": ["Limited content available for analysis."],
+            "signals": {
+                "uniformity": 0,
+                "buzzword_density": 0,
+                "project_detail": 0,
+                "structure_repetition": 0,
+                "skill_context": 0,
+            },
         }
 
-    word_counts: dict[str, int] = {}
-    for word in words:
-        word_counts[word] = word_counts.get(word, 0) + 1
-    repeated_words = sum(1 for count in word_counts.values() if count > 5)
-    repetition_score = round(repeated_words / max(len(word_counts), 1), 2)
-    buzzword_hits = sum(1 for word in BUZZWORDS if word in normalized_text)
-    buzzword_density = round(buzzword_hits / max(len(words), 1), 2)
-
-    generic_project_phrases = ["worked on project", "various projects", "team project"]
-    generic_project_score = (
-        1 if any(phrase in normalized_text for phrase in generic_project_phrases) else 0
+    sentence_lengths = [len(sentence.split()) for sentence in sentences] or [0]
+    avg_length = sum(sentence_lengths) / max(len(sentence_lengths), 1)
+    variance = sum((length - avg_length) ** 2 for length in sentence_lengths) / max(
+        len(sentence_lengths), 1
     )
+    uniformity = 1 / (1 + variance)
 
-    if repetition_score > 0.15 or buzzword_density > 0.05 or generic_project_score:
-        label = "Likely AI"
-    elif repetition_score > 0.08 or buzzword_density > 0.03:
-        label = "Possibly AI"
+    buzzword_hits = sum(1 for phrase in BUZZWORDS if phrase in normalized_text)
+    buzzword_density = buzzword_hits / max(len(sentences), 1)
+
+    project_signals = [
+        "deployed",
+        "deployment",
+        "latency",
+        "throughput",
+        "metrics",
+        "version",
+        "implemented",
+        "built",
+    ]
+    project_detail = sum(1 for phrase in project_signals if phrase in normalized_text)
+
+    structure_patterns = ["developed", "built", "led", "designed", "implemented"]
+    structure_repetition = sum(
+        1 for sentence in sentences if any(sentence.startswith(pattern) for pattern in structure_patterns)
+    )
+    structure_repetition_ratio = structure_repetition / max(len(sentences), 1)
+
+    skill_context_indicators = ["using", "with", "by", "to", "for"]
+    context_hits = sum(1 for word in skill_context_indicators if word in words)
+    skill_context_score = context_hits / max(len(words), 1)
+
+    score = 0
+    reasons = []
+    if uniformity > 0.25:
+        score += 25
+        reasons.append("Highly uniform sentence structure detected.")
+    if buzzword_density > 0.2:
+        score += 20
+        reasons.append("High buzzword density detected.")
+    if project_detail < 2:
+        score += 20
+        reasons.append("Limited project detail evidence.")
+    if structure_repetition_ratio > 0.4:
+        score += 15
+        reasons.append("Repeating achievement sentence structures detected.")
+    if skill_context_score < 0.03:
+        score += 20
+        reasons.append("Skills listed with limited usage context.")
+
+    score = min(100, score)
+    if score >= 70:
+        label = "Highly AI Generated"
+    elif score >= 40:
+        label = "Possibly AI Assisted"
     else:
         label = "Likely Human"
+
     return {
+        "score": score,
         "label": label,
-        "repetition_score": repetition_score,
-        "buzzword_density": buzzword_density,
-        "generic_project_score": generic_project_score,
+        "reasons": reasons or ["No strong AI signals detected."],
+        "signals": {
+            "uniformity": round(uniformity, 2),
+            "buzzword_density": round(buzzword_density, 2),
+            "project_detail": project_detail,
+            "structure_repetition": round(structure_repetition_ratio, 2),
+            "skill_context": round(skill_context_score, 2),
+        },
     }
 
 
@@ -915,7 +965,7 @@ def upload() -> str:
 
         matched_clusters, missing_clusters = evaluate_skill_clusters(resume_text)
         project_evidence = extract_resume_evidence(resume_text)
-        authenticity = analyze_authenticity(resume_text)
+        authenticity = detect_ai_likelihood(resume_text)
         score_data = calculate_score(resume_text, job_description, role_requirements)
         decision_text = decision(
             score_data["total_score"], score_data["skill_match_ratio"]
