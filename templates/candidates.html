@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Candidates | CYGNUSA Elite-Hire{% endblock %}
+
+{% block content %}
+<h1 class="mb-3">Candidate Details</h1>
+<p class="text-muted">Detailed skill alignment, experience, and education breakdowns.</p>
+
+{% if not candidates %}
+    <div class="alert alert-info">No candidates uploaded yet. Upload resumes to view details.</div>
+{% endif %}
+
+{% for candidate in candidates %}
+    <div class="card shadow-soft border-0 mb-4">
+        <div class="card-body">
+            <div class="d-flex align-items-start justify-content-between">
+                <div>
+                    <h5 class="card-title">{{ candidate.name }}</h5>
+                    <p class="text-muted mb-1">Score: {{ candidate.score }} / 100</p>
+                </div>
+                <div>
+                    {% if candidate.decision == "Hire" %}
+                        <span class="badge bg-success">Hire</span>
+                    {% elif candidate.decision == "Potential" %}
+                        <span class="badge bg-warning text-dark">Potential</span>
+                    {% else %}
+                        <span class="badge bg-danger">Reject</span>
+                    {% endif %}
+                    <span class="badge bg-secondary ms-2">AI Authenticity: Clear</span>
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <h6 class="text-muted">Skill Match</h6>
+                <div class="progress mb-2">
+                    <div class="progress-bar" role="progressbar" style="width: {{ (candidate.skill_match_ratio * 100) | round }}%;" aria-valuenow="{{ (candidate.skill_match_ratio * 100) | round }}" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                <small class="text-muted">{{ (candidate.skill_match_ratio * 100) | round }}% skills matched</small>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <h6 class="text-muted">Matched Skills</h6>
+                    {% if candidate.matched_skills %}
+                        {% for skill in candidate.matched_skills %}
+                            <span class="badge bg-success me-1 mb-1">{{ skill }}</span>
+                        {% endfor %}
+                    {% else %}
+                        <span class="text-muted">No matched skills.</span>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    <h6 class="text-muted">Missing Skills</h6>
+                    {% if candidate.missing_skills %}
+                        {% for skill in candidate.missing_skills %}
+                            <span class="badge badge-outline-danger me-1 mb-1">{{ skill }}</span>
+                        {% endfor %}
+                    {% else %}
+                        <span class="text-muted">No missing skills.</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-md-4">
+                    <h6 class="text-muted">Skills Score</h6>
+                    <div class="progress">
+                        <div class="progress-bar bg-primary" style="width: {{ (candidate.breakdown.skills / 60) * 100 }}%"></div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="text-muted">Experience Score</h6>
+                    <div class="progress">
+                        <div class="progress-bar bg-info" style="width: {{ (candidate.breakdown.experience / 25) * 100 }}%"></div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="text-muted">Education Score</h6>
+                    <div class="progress">
+                        <div class="progress-bar bg-secondary" style="width: {{ (candidate.breakdown.education / 15) * 100 }}%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <h6 class="text-muted">Explanation</h6>
+                <div class="bg-light border rounded p-3">
+                    <pre class="mb-0">{{ candidate.explanation }}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+{% endblock %}
