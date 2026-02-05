@@ -326,21 +326,23 @@ def extract_text_from_pdf(pdf_file) -> str:
         return ""
 
 
-def extract_candidate_name(resume_text: str, file_name: str) -> str:
-    """Extract candidate name from resume text with a safe fallback."""
-    if not resume_text:
-        return file_name
+def extract_candidate_name(resume_text: str, filename: str) -> str:
+    try:
+        lines = resume_text.split("\n")
 
-    lines = [line.strip() for line in resume_text.split("\n") if line.strip()]
-    candidate_line = lines[0] if lines else file_name
+        for line in lines[:5]:
+            clean_line = line.strip()
 
-    name_pattern = re.compile(r"^[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,3}$")
-    for line in lines[:3]:
-        if name_pattern.match(line):
-            candidate_line = line
-            break
+            if (
+                re.match(r"^[A-Z][a-zA-Z]+(\s[A-Z][a-zA-Z]+)+$", clean_line)
+                and len(clean_line) < 50
+            ):
+                return clean_line
 
-    return candidate_line if candidate_line else file_name
+        return filename.replace(".pdf", "")
+
+    except Exception:
+        return filename.replace(".pdf", "")
 
 
 def get_role_requirements(role: str) -> dict:
@@ -908,7 +910,7 @@ def dashboard() -> str:
     """Render the employer dashboard overview."""
     selected_role = session.get("active_role", "")
     role_requirements = get_role_requirements(selected_role)
-    candidates = get_filtered_candidates()
+    candidates = session.get("evaluated_candidates", [])
     analytics = generate_analytics_summary(candidates)
     counts = {
         "total": len(candidates),
@@ -920,6 +922,8 @@ def dashboard() -> str:
             1 for candidate in candidates if candidate["decision"] == "Reject"
         ),
     }
+    print("Session keys:", session.keys())
+    print("Candidate count:", len(session.get("evaluated_candidates", [])))
     return render_template(
         "dashboard.html",
         roles=sorted(JOB_ROLES.keys()),
@@ -928,6 +932,7 @@ def dashboard() -> str:
         role_requirements=role_requirements,
         counts=counts,
         analytics=analytics,
+        candidates=candidates,
         active_page="dashboard",
     )
 
@@ -937,7 +942,7 @@ def shortlist() -> str:
     """Render the shortlist page."""
     selected_role = session.get("active_role", "")
     role_requirements = get_role_requirements(selected_role)
-    candidates = get_filtered_candidates()
+    candidates = session.get("evaluated_candidates", [])
     sort_key = request.args.get("sort", "score")
     sort_order = request.args.get("order", "desc")
     reverse = sort_order == "desc"
@@ -986,12 +991,18 @@ def candidates() -> str:
     """Render candidate detail page."""
     selected_role = session.get("active_role", "")
     role_requirements = get_role_requirements(selected_role)
-    candidates_list = get_filtered_candidates()
-    selected_file = request.args.get("resume_file_name")
-    if selected_file:
-        candidates_list = [
-            c for c in candidates_list if c.get("resume_file_name") == selected_file
-        ]
+    candidates_list = session.get("evaluated_candidates", [])
+    filename = request.args.get("file")
+    candidate = next(
+        (
+            c
+            for c in session.get("evaluated_candidates", [])
+            if c["resume_file_name"] == filename
+        ),
+        None,
+    )
+    if filename:
+        candidates_list = [candidate] if candidate else []
     return render_template(
         "candidates.html",
         roles=sorted(JOB_ROLES.keys()),
@@ -1028,7 +1039,7 @@ def update_role() -> str:
 def insights() -> str:
     """Render the insights page."""
     selected_role = session.get("active_role", "")
-    candidates = get_filtered_candidates()
+    candidates = session.get("evaluated_candidates", [])
     total_candidates = len(candidates)
     average_score = (
         round(sum(candidate["score"] for candidate in candidates) / total_candidates)
@@ -1062,6 +1073,7 @@ def insights() -> str:
         roles_data=JOB_ROLES,
         selected_role=selected_role,
         role_requirements=role_requirements,
+        candidates=candidates,
         total_candidates=total_candidates,
         average_score=average_score,
         top_missing_skills=top_missing_skills,
@@ -1075,6 +1087,7 @@ def insights() -> str:
 def upload() -> str:
     """Handle resume uploads and render ranking results."""
     job_role = request.form.get("job_role", "").strip()
+    selected_role = job_role
     job_description = ""
     if job_role:
         session["active_role"] = job_role
@@ -1142,40 +1155,25 @@ def upload() -> str:
             len(score_data["education_evidence"]["certifications"]),
         )
 
-        results.append(
-            {
-                "candidate_name": candidate_name,
-                "resume_file_name": uploaded_file.filename,
-                "score": round(score_data["total_score"]),
-                "decision": decision_text,
-                "matched_skills": score_data["matched_skills"],
-                "missing_skills": score_data["missing_skills"],
-                "role": job_role or "Unspecified",
-                "explanation": explanation,
-                "authenticity_result": authenticity,
-                "experience_score": round(score_data["experience_score"]),
-                "education_score": round(score_data["education_score"]),
-                "certification_score": score_data["certification_bonus"]
-                + score_data["course_bonus"],
-                "skill_match_ratio": round(score_data["skill_match_ratio"], 2),
-                "matched_clusters": matched_clusters,
-                "missing_clusters": missing_clusters,
-                "project_evidence": project_evidence,
-                "project_detail": score_data["project_evidence"],
-                "education_match": score_data["education_match"],
-                "education_evidence": score_data["education_evidence"],
-                "certification_bonus": score_data["certification_bonus"],
-                "course_bonus": score_data["course_bonus"],
-                "breakdown": {
-                    "skills": round(score_data["skills_score"]),
-                    "experience": round(score_data["experience_score"]),
-                    "education": round(score_data["education_score"]),
-                },
-            }
-        )
+        candidate = {
+            "candidate_name": candidate_name,
+            "name": candidate_name,
+            "resume_file_name": uploaded_file.filename,
+            "score": score_data["total_score"],
+            "decision": decision_text,
+            "matched_skills": score_data["matched_skills"],
+            "missing_skills": score_data["missing_skills"],
+            "role": selected_role,
+            "explanation": explanation,
+        }
+        results.append(candidate)
 
     ranked_results = sorted(results, key=lambda item: item["score"], reverse=True)
-    session["evaluated_candidates"] = ranked_results
+    evaluated_candidates = ranked_results
+    if "evaluated_candidates" not in session:
+        session["evaluated_candidates"] = []
+    session["evaluated_candidates"] = evaluated_candidates
+    session.modified = True
 
     return render_template(
         "results.html",
