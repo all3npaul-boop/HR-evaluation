@@ -15,7 +15,8 @@
         <div class="card-body">
             <div class="d-flex align-items-start justify-content-between">
                 <div>
-                    <h5 class="card-title">{{ candidate.name }}</h5>
+                    <h5 class="card-title">{{ candidate.candidate_name or candidate.resume_file_name }}</h5>
+                    <p class="text-muted mb-1">Resume: {{ candidate.resume_file_name }}</p>
                     <p class="text-muted mb-1">Score: {{ candidate.score }} / 100</p>
                 </div>
                 <div>

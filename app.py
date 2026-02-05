@@ -326,6 +326,23 @@ def extract_text_from_pdf(pdf_file) -> str:
         return ""
 
 
+def extract_candidate_name(resume_text: str, file_name: str) -> str:
+    """Extract candidate name from resume text with a safe fallback."""
+    if not resume_text:
+        return file_name
+
+    lines = [line.strip() for line in resume_text.split("\n") if line.strip()]
+    candidate_line = lines[0] if lines else file_name
+
+    name_pattern = re.compile(r"^[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,3}$")
+    for line in lines[:3]:
+        if name_pattern.match(line):
+            candidate_line = line
+            break
+
+    return candidate_line if candidate_line else file_name
+
+
 def get_role_requirements(role: str) -> dict:
     """Return role requirements with employer overrides applied."""
     base_requirements = JOB_ROLES.get(role, {})
@@ -970,14 +987,11 @@ def candidates() -> str:
     selected_role = session.get("active_role", "")
     role_requirements = get_role_requirements(selected_role)
     candidates_list = get_filtered_candidates()
-    selected_name = request.args.get("name")
-    selected_index = request.args.get("index")
-    if selected_name:
-        candidates_list = [c for c in candidates_list if c.get("name") == selected_name]
-    elif selected_index and selected_index.isdigit():
-        index = int(selected_index)
-        if 0 <= index < len(candidates_list):
-            candidates_list = [candidates_list[index]]
+    selected_file = request.args.get("resume_file_name")
+    if selected_file:
+        candidates_list = [
+            c for c in candidates_list if c.get("resume_file_name") == selected_file
+        ]
     return render_template(
         "candidates.html",
         roles=sorted(JOB_ROLES.keys()),
@@ -1100,6 +1114,7 @@ def upload() -> str:
             )
             continue
 
+        candidate_name = extract_candidate_name(resume_text, uploaded_file.filename)
         matched_clusters, missing_clusters = detect_skill_clusters(resume_text)
         project_evidence = extract_resume_evidence(resume_text)
         authenticity = detect_ai_likelihood(resume_text)
@@ -1129,7 +1144,8 @@ def upload() -> str:
 
         results.append(
             {
-                "name": uploaded_file.filename,
+                "candidate_name": candidate_name,
+                "resume_file_name": uploaded_file.filename,
                 "score": round(score_data["total_score"]),
                 "decision": decision_text,
                 "matched_skills": score_data["matched_skills"],

@@ -56,7 +56,8 @@
         <thead class="table-light sticky-top">
             <tr>
                 <th>Rank</th>
-                <th>Candidate</th>
+                <th>Candidate Name</th>
+                <th>Resume File</th>
                 <th>Score</th>
                 <th>Decision</th>
                 <th>Authenticity</th>
@@ -67,7 +68,8 @@
             {% for result in results %}
             <tr>
                 <td>{{ loop.index }}</td>
-                <td>{{ result.name }}</td>
+                <td>{{ result.candidate_name or result.resume_file_name }}</td>
+                <td class="text-muted">{{ result.resume_file_name }}</td>
                 <td>{{ result.score }}</td>
                 <td>
                     {% if result.decision == "Hire" %}
@@ -87,7 +89,7 @@
                     {% endif %}
                 </td>
                 <td>
-                    <a href="/candidates" class="btn btn-sm btn-outline-primary">View Details</a>
+                    <a href="/candidates?resume_file_name={{ result.resume_file_name }}" class="btn btn-sm btn-outline-primary">View Details</a>
                 </td>
             </tr>
             {% endfor %}

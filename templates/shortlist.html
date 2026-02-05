@@ -49,7 +49,8 @@
             <thead class="table-light sticky-top">
                 <tr>
                     <th>Rank</th>
-                    <th>Candidate</th>
+                    <th>Candidate Name</th>
+                    <th>Resume File</th>
                     <th>
                         <a href="?sort=score&order={{ 'asc' if sort_order == 'desc' else 'desc' }}" class="text-decoration-none">Score</a>
                     </th>
@@ -65,7 +66,8 @@
                 {% for candidate in candidates %}
                 <tr>
                     <td>{{ loop.index }}</td>
-                    <td>{{ candidate.name }}</td>
+                    <td>{{ candidate.candidate_name or candidate.resume_file_name }}</td>
+                    <td class="text-muted">{{ candidate.resume_file_name }}</td>
                     <td>{{ candidate.score }}</td>
                     <td>
                         {% if candidate.decision == "Hire" %}
@@ -90,7 +92,7 @@
                             <span class="badge bg-secondary">No</span>
                         {% endif %}
                     </td>
-                    <td><a href="/candidates" class="btn btn-sm btn-outline-primary">View Details</a></td>
+                    <td><a href="/candidates?resume_file_name={{ candidate.resume_file_name }}" class="btn btn-sm btn-outline-primary">View Details</a></td>
                 </tr>
                 {% endfor %}
             </tbody>
