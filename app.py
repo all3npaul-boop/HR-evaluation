@@ -6,32 +6,117 @@ import re
 from typing import List, Tuple
 
 import pdfplumber
-from flask import Flask, redirect, render_template, request, url_for
+from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 
 DEFAULT_JD_SKILLS = ["python", "sql", "data structures", "problem solving"]
 DEFAULT_REQUIRED_EXPERIENCE = 3  # years
 DEFAULT_REQUIRED_EDUCATION = "bachelor"
 
-# Local job role dataset (used for automatic JD loading).
+# Local job role dataset (technology roles only).
 JOB_ROLES = {
     "Full Stack Developer": {
-        "skills": ["react", "node.js", "postgresql", "aws"],
+        "skills": [
+            "react.js",
+            "node.js",
+            "express.js",
+            "postgresql",
+            "rest api development",
+            "aws basics",
+            "docker",
+            "git",
+        ],
         "experience": 3,
-        "education": "bachelor",
+        "education": "Bachelor in Computer Science or related field",
     },
-    "Lab Chemist": {
-        "skills": ["chemical analysis", "qc testing", "msds management"],
+    "Frontend Developer": {
+        "skills": [
+            "react.js",
+            "typescript",
+            "html5",
+            "css3",
+            "tailwind / bootstrap",
+            "state management (redux / context api)",
+            "web performance optimization",
+        ],
         "experience": 2,
-        "education": "bachelor",
+        "education": "Bachelor in Computer Science or related field",
+    },
+    "Backend Developer": {
+        "skills": [
+            "node.js",
+            "python (django / fastapi)",
+            "postgresql / mongodb",
+            "microservices architecture",
+            "authentication systems",
+            "api security",
+        ],
+        "experience": 3,
+        "education": "Bachelor in Computer Science or related field",
+    },
+    "DevOps Engineer": {
+        "skills": [
+            "docker",
+            "kubernetes",
+            "ci/cd pipelines",
+            "aws / azure",
+            "terraform",
+            "monitoring tools (prometheus / grafana)",
+            "linux administration",
+        ],
+        "experience": 3,
+        "education": "Bachelor in Computer Science or related field",
     },
     "Data Analyst": {
-        "skills": ["python", "sql", "data visualization", "problem solving"],
+        "skills": [
+            "sql",
+            "python (pandas / numpy)",
+            "power bi / tableau",
+            "data cleaning",
+            "statistical analysis",
+            "excel advanced functions",
+        ],
         "experience": 2,
-        "education": "bachelor",
+        "education": "Bachelor in Computer Science, Statistics, or related field",
+    },
+    "Data Scientist": {
+        "skills": [
+            "python (scikit-learn, tensorflow, pytorch)",
+            "machine learning algorithms",
+            "data visualization",
+            "feature engineering",
+            "model evaluation",
+            "statistical modeling",
+        ],
+        "experience": 3,
+        "education": "Bachelor or Master in Data Science, AI, or Computer Science",
+    },
+    "Cloud Engineer": {
+        "skills": [
+            "aws / azure / gcp",
+            "infrastructure as code",
+            "networking fundamentals",
+            "cloud security",
+            "load balancing",
+            "serverless architecture",
+        ],
+        "experience": 3,
+        "education": "Bachelor in Computer Science or related field",
+    },
+    "Mobile App Developer": {
+        "skills": [
+            "flutter / react native",
+            "android (kotlin / java)",
+            "ios development",
+            "rest api integration",
+            "mobile ui/ux principles",
+        ],
+        "experience": 2,
+        "education": "Bachelor in Computer Science or related field",
     },
 }
 
 app = Flask(__name__)
+app.secret_key = "cygnusa-elite-hire"
 
 
 def extract_text_from_pdf(pdf_file) -> str:
@@ -241,7 +326,54 @@ def explain(
 @app.route("/")
 def index() -> str:
     """Render the upload form."""
-    return render_template("index.html", roles=sorted(JOB_ROLES.keys()))
+    return render_template(
+        "index.html",
+        roles=sorted(JOB_ROLES.keys()),
+        roles_data=JOB_ROLES,
+        selected_role=session.get("selected_role", ""),
+    )
+
+
+@app.route("/dashboard")
+def dashboard() -> str:
+    """Render the employer dashboard overview."""
+    selected_role = session.get("selected_role", "")
+    role_requirements = JOB_ROLES.get(selected_role, {})
+    return render_template(
+        "dashboard.html",
+        roles=sorted(JOB_ROLES.keys()),
+        roles_data=JOB_ROLES,
+        selected_role=selected_role,
+        role_requirements=role_requirements,
+    )
+
+
+@app.route("/shortlist")
+def shortlist() -> str:
+    """Render the shortlist page."""
+    selected_role = session.get("selected_role", "")
+    role_requirements = JOB_ROLES.get(selected_role, {})
+    return render_template(
+        "shortlist.html",
+        roles=sorted(JOB_ROLES.keys()),
+        roles_data=JOB_ROLES,
+        selected_role=selected_role,
+        role_requirements=role_requirements,
+    )
+
+
+@app.route("/evaluation")
+def evaluation() -> str:
+    """Render the candidate evaluation page."""
+    selected_role = session.get("selected_role", "")
+    role_requirements = JOB_ROLES.get(selected_role, {})
+    return render_template(
+        "evaluation.html",
+        roles=sorted(JOB_ROLES.keys()),
+        roles_data=JOB_ROLES,
+        selected_role=selected_role,
+        role_requirements=role_requirements,
+    )
 
 
 @app.route("/upload", methods=["POST"])
@@ -249,6 +381,8 @@ def upload() -> str:
     """Handle resume uploads and render ranking results."""
     job_role = request.form.get("job_role", "").strip()
     job_description = ""
+    if job_role:
+        session["selected_role"] = job_role
     role_requirements = JOB_ROLES.get(job_role, {})
     if not role_requirements:
         role_requirements = {
@@ -308,9 +442,23 @@ def upload() -> str:
         results=ranked_results,
         warnings=warnings,
         job_role=job_role,
+        roles=sorted(JOB_ROLES.keys()),
+        roles_data=JOB_ROLES,
+        selected_role=job_role,
         role_requirements=role_requirements,
         total_candidates=len(ranked_results),
     )
+
+
+@app.route("/set-role", methods=["POST"])
+def set_role() -> str:
+    """Persist selected role in session for dashboard pages."""
+    payload = request.get_json(silent=True) or {}
+    selected_role = payload.get("role", "")
+    if selected_role in JOB_ROLES:
+        session["selected_role"] = selected_role
+        return jsonify({"status": "ok"})
+    return jsonify({"status": "invalid role"}), 400
 
 
 if __name__ == "__main__":
