@@ -43,7 +43,7 @@
                                 </div>
                                 <div class="col-md-6">
                                     <div class="card h-100">
-                                        <div class="card-body">
+                                        <div class="card-body card-content-safe">
                                             <h6 class="text-muted">Required Skills</h6>
                                             <div id="skills-preview"></div>
                                         </div>
@@ -150,7 +150,7 @@
         skillBadges.innerHTML = "";
         currentSkills.forEach((skill, index) => {
             const badge = document.createElement("span");
-            badge.className = "badge bg-secondary me-1 mb-1";
+            badge.className = "skill-badge";
             badge.textContent = skill;
             const button = document.createElement("button");
             button.type = "button";
@@ -199,7 +199,7 @@
         }
         data.skills.forEach((skill) => {
             const badge = document.createElement("span");
-            badge.className = "badge badge-skill";
+            badge.className = "skill-badge";
             badge.textContent = skill;
             skillsPreview.appendChild(badge);
         });

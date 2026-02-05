@@ -109,10 +109,10 @@
         </div>
         <h5 class="card-title mt-4">Job Role Requirements</h5>
         <div class="row g-3">
-            <div class="col-md-6">
+            <div class="col-md-6 card-content-safe">
                 {% if role_requirements and role_requirements.skills %}
                     {% for skill in role_requirements.skills %}
-                        <span class="badge badge-skill">{{ skill }}</span>
+                        <span class="skill-badge">{{ skill }}</span>
                     {% endfor %}
                 {% else %}
                     <span class="text-muted">Select a role on the Job Roles page.</span>

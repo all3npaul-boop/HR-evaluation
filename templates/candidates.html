@@ -43,7 +43,7 @@
                     <h6 class="text-muted">Matched Skill Clusters</h6>
                     {% if candidate.matched_clusters %}
                         {% for cluster in candidate.matched_clusters %}
-                            <span class="badge bg-primary me-1 mb-1 text-uppercase">{{ cluster }}</span>
+                            <span class="skill-badge skill-badge-matched text-uppercase">{{ cluster }}</span>
                         {% endfor %}
                     {% else %}
                         <span class="text-muted">No clusters matched.</span>
@@ -53,7 +53,7 @@
                     <h6 class="text-muted">Missing Clusters</h6>
                     {% if candidate.missing_clusters %}
                         {% for cluster in candidate.missing_clusters %}
-                            <span class="badge badge-outline-danger me-1 mb-1 text-uppercase">{{ cluster }}</span>
+                            <span class="skill-badge skill-badge-missing text-uppercase">{{ cluster }}</span>
                         {% endfor %}
                     {% else %}
                         <span class="text-muted">All clusters covered.</span>
@@ -66,7 +66,7 @@
                     <h6 class="text-muted">Matched Skills</h6>
                     {% if candidate.matched_skills %}
                         {% for skill in candidate.matched_skills %}
-                            <span class="skill-badge-matched">{{ skill }}</span>
+                            <span class="skill-badge skill-badge-matched">{{ skill }}</span>
                         {% endfor %}
                     {% else %}
                         <span class="text-muted">No matched skills.</span>
@@ -76,7 +76,7 @@
                     <h6 class="text-muted">Missing Skills</h6>
                     {% if candidate.missing_skills %}
                         {% for skill in candidate.missing_skills %}
-                            <span class="skill-badge-missing">{{ skill }}</span>
+                            <span class="skill-badge skill-badge-missing">{{ skill }}</span>
                         {% endfor %}
                     {% else %}
                         <span class="text-muted">No missing skills.</span>

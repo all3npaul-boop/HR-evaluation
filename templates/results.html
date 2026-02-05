@@ -14,11 +14,11 @@
 <div class="row g-3 mb-4">
     <div class="col-md-6">
         <div class="card h-100">
-            <div class="card-body">
+            <div class="card-body card-content-safe">
                 <h6 class="text-muted">Required Skills</h6>
                 {% if role_requirements and role_requirements.skills %}
                     {% for skill in role_requirements.skills %}
-                        <span class="badge badge-skill">{{ skill }}</span>
+                        <span class="skill-badge">{{ skill }}</span>
                     {% endfor %}
                 {% else %}
                     <span class="text-muted">Not specified</span>

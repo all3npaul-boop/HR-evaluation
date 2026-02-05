@@ -1,22 +1,30 @@
+.skill-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    margin: 4px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    background-color: #2563eb;
+    color: #ffffff;
+}
+
+.skill-badge:hover {
+    transform: scale(1.05);
+    transition: 0.2s ease;
+}
+
 .skill-badge-matched {
     background-color: #16a34a;
     color: #ffffff;
-    padding: 5px 10px;
-    border-radius: 6px;
-    margin: 4px;
-    font-size: 13px;
-    font-weight: 500;
-    display: inline-block;
 }
 
 .skill-badge-missing {
+    background-color: #fee2e2;
     border: 1px solid #dc2626;
     color: #dc2626;
-    padding: 5px 10px;
-    border-radius: 6px;
-    margin: 4px;
-    font-size: 13px;
-    font-weight: 500;
-    background-color: #fee2e2;
-    display: inline-block;
+}
+
+.card-content-safe {
+    color: #111827;
 }

@@ -18,13 +18,15 @@
                 {% endfor %}
             </ul>
         {% endif %}
-        {% if role_requirements and role_requirements.skills %}
-            {% for skill in role_requirements.skills %}
-                <span class="badge badge-skill">{{ skill }}</span>
-            {% endfor %}
-        {% else %}
-            <span class="text-muted">Select a role to view requirements.</span>
-        {% endif %}
+        <div class="card-content-safe">
+            {% if role_requirements and role_requirements.skills %}
+                {% for skill in role_requirements.skills %}
+                    <span class="skill-badge">{{ skill }}</span>
+                {% endfor %}
+            {% else %}
+                <span class="text-muted">Select a role to view requirements.</span>
+            {% endif %}
+        </div>
         <div class="row mt-3">
             <div class="col-md-3">
                 <h6 class="text-muted">Experience</h6>
