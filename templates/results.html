@@ -79,9 +79,9 @@
                     {% endif %}
                 </td>
                 <td>
-                    {% if result.authenticity %}
-                        <span class="badge bg-secondary">{{ result.authenticity.label }}</span>
-                        <small class="text-muted ms-1">{{ result.authenticity.score }}/100</small>
+                    {% if result.authenticity_result %}
+                        <span class="badge bg-secondary">{{ result.authenticity_result.label }}</span>
+                        <small class="text-muted ms-1">{{ result.authenticity_result.score }}/100</small>
                     {% else %}
                         <span class="text-muted">-</span>
                     {% endif %}

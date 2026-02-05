@@ -287,9 +287,7 @@ app.secret_key = "cygnusa-elite-hire"
 @app.context_processor
 def inject_counts() -> dict:
     """Provide candidate counts for sidebar badges."""
-    role_results = session.get("role_results", {})
-    selected_role = session.get("selected_role", "")
-    candidates = role_results.get(selected_role, session.get("last_results", []))
+    candidates = session.get("evaluated_candidates", [])
     return {
         "candidate_counts": {
             "hire": sum(1 for candidate in candidates if candidate.get("decision") == "Hire"),
@@ -698,6 +696,22 @@ def generate_analytics_summary(candidates: list[dict]) -> dict:
     }
 
 
+def get_filtered_candidates() -> list[dict]:
+    """Return role-filtered candidates from the session."""
+    all_candidates = session.get("evaluated_candidates", [])
+    active_role = session.get("active_role")
+    if not active_role:
+        return all_candidates
+
+    filtered = []
+    for candidate in all_candidates:
+        if not candidate.get("role"):
+            candidate["role"] = active_role
+        if candidate.get("role") == active_role:
+            filtered.append(candidate)
+    return filtered
+
+
 # Core logic function wrappers (required names)
 
 def calculate_score(
@@ -861,7 +875,7 @@ def explain(
 @app.route("/")
 def index() -> str:
     """Render the upload form."""
-    selected_role = session.get("selected_role", "")
+    selected_role = session.get("active_role", "")
     return render_template(
         "index.html",
         roles=sorted(JOB_ROLES.keys()),
@@ -875,10 +889,9 @@ def index() -> str:
 @app.route("/dashboard")
 def dashboard() -> str:
     """Render the employer dashboard overview."""
-    selected_role = session.get("selected_role", "")
+    selected_role = session.get("active_role", "")
     role_requirements = get_role_requirements(selected_role)
-    role_results = session.get("role_results", {})
-    candidates = role_results.get(selected_role, session.get("last_results", []))
+    candidates = get_filtered_candidates()
     analytics = generate_analytics_summary(candidates)
     counts = {
         "total": len(candidates),
@@ -905,10 +918,9 @@ def dashboard() -> str:
 @app.route("/shortlist")
 def shortlist() -> str:
     """Render the shortlist page."""
-    selected_role = session.get("selected_role", "")
+    selected_role = session.get("active_role", "")
     role_requirements = get_role_requirements(selected_role)
-    role_results = session.get("role_results", {})
-    candidates = role_results.get(selected_role, session.get("last_results", []))
+    candidates = get_filtered_candidates()
     sort_key = request.args.get("sort", "score")
     sort_order = request.args.get("order", "desc")
     reverse = sort_order == "desc"
@@ -939,7 +951,7 @@ def shortlist() -> str:
 @app.route("/evaluation")
 def evaluation() -> str:
     """Render the candidate evaluation page."""
-    selected_role = session.get("selected_role", "")
+    selected_role = session.get("active_role", "")
     role_requirements = get_role_requirements(selected_role)
     return render_template(
         "evaluation.html",
@@ -955,15 +967,24 @@ def evaluation() -> str:
 @app.route("/candidates")
 def candidates() -> str:
     """Render candidate detail page."""
-    selected_role = session.get("selected_role", "")
+    selected_role = session.get("active_role", "")
     role_requirements = get_role_requirements(selected_role)
+    candidates_list = get_filtered_candidates()
+    selected_name = request.args.get("name")
+    selected_index = request.args.get("index")
+    if selected_name:
+        candidates_list = [c for c in candidates_list if c.get("name") == selected_name]
+    elif selected_index and selected_index.isdigit():
+        index = int(selected_index)
+        if 0 <= index < len(candidates_list):
+            candidates_list = [candidates_list[index]]
     return render_template(
         "candidates.html",
         roles=sorted(JOB_ROLES.keys()),
         roles_data=JOB_ROLES,
         selected_role=selected_role,
         role_requirements=role_requirements,
-        candidates=session.get("last_results", []),
+        candidates=candidates_list,
         active_page="candidates",
     )
 
@@ -971,7 +992,7 @@ def candidates() -> str:
 @app.route("/roles")
 def roles() -> str:
     """Render the job roles page."""
-    selected_role = session.get("selected_role", "")
+    selected_role = session.get("active_role", "")
     role_requirements = get_default_role_requirements(selected_role)
     return render_template(
         "roles.html",
@@ -992,9 +1013,8 @@ def update_role() -> str:
 @app.route("/insights")
 def insights() -> str:
     """Render the insights page."""
-    selected_role = session.get("selected_role", "")
-    role_results = session.get("role_results", {})
-    candidates = role_results.get(selected_role, session.get("last_results", []))
+    selected_role = session.get("active_role", "")
+    candidates = get_filtered_candidates()
     total_candidates = len(candidates)
     average_score = (
         round(sum(candidate["score"] for candidate in candidates) / total_candidates)
@@ -1043,7 +1063,7 @@ def upload() -> str:
     job_role = request.form.get("job_role", "").strip()
     job_description = ""
     if job_role:
-        session["selected_role"] = job_role
+        session["active_role"] = job_role
     default_requirements = get_default_role_requirements(job_role)
     # JD override workflow: accept employer edits from the upload form only.
     skills_raw = request.form.get("skills", "")
@@ -1112,15 +1132,20 @@ def upload() -> str:
                 "name": uploaded_file.filename,
                 "score": round(score_data["total_score"]),
                 "decision": decision_text,
-                "explanation": explanation,
-                "skill_match_ratio": round(score_data["skill_match_ratio"], 2),
                 "matched_skills": score_data["matched_skills"],
                 "missing_skills": score_data["missing_skills"],
+                "role": job_role or "Unspecified",
+                "explanation": explanation,
+                "authenticity_result": authenticity,
+                "experience_score": round(score_data["experience_score"]),
+                "education_score": round(score_data["education_score"]),
+                "certification_score": score_data["certification_bonus"]
+                + score_data["course_bonus"],
+                "skill_match_ratio": round(score_data["skill_match_ratio"], 2),
                 "matched_clusters": matched_clusters,
                 "missing_clusters": missing_clusters,
                 "project_evidence": project_evidence,
                 "project_detail": score_data["project_evidence"],
-                "authenticity": authenticity,
                 "education_match": score_data["education_match"],
                 "education_evidence": score_data["education_evidence"],
                 "certification_bonus": score_data["certification_bonus"],
@@ -1130,16 +1155,11 @@ def upload() -> str:
                     "experience": round(score_data["experience_score"]),
                     "education": round(score_data["education_score"]),
                 },
-                "role": job_role or "Unspecified",
             }
         )
 
     ranked_results = sorted(results, key=lambda item: item["score"], reverse=True)
-    session["last_results"] = ranked_results
-    role_results = session.get("role_results", {})
-    role_key = job_role or "Unspecified"
-    role_results[role_key] = ranked_results
-    session["role_results"] = role_results
+    session["evaluated_candidates"] = ranked_results
 
     return render_template(
         "results.html",
@@ -1148,7 +1168,7 @@ def upload() -> str:
         job_role=job_role,
         roles=sorted(JOB_ROLES.keys()),
         roles_data=JOB_ROLES,
-        selected_role=job_role,
+        selected_role=session.get("active_role", ""),
         role_requirements=role_requirements,
         total_candidates=len(ranked_results),
         active_page="candidates",
@@ -1161,7 +1181,7 @@ def set_role() -> str:
     payload = request.get_json(silent=True) or {}
     selected_role = payload.get("role", "")
     if selected_role in JOB_ROLES:
-        session["selected_role"] = selected_role
+        session["active_role"] = selected_role
         return jsonify({"status": "ok"})
     return jsonify({"status": "invalid role"}), 400
 
