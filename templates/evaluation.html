@@ -10,6 +10,14 @@
     <div class="card-body">
         <h5 class="card-title">Role Requirements</h5>
         <p class="text-muted">{{ selected_role if selected_role else "No role selected" }}</p>
+        {% if role_requirements and role_requirements.fundamentals %}
+            <h6 class="text-muted">Fundamentals</h6>
+            <ul>
+                {% for item in role_requirements.fundamentals %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
         {% if role_requirements and role_requirements.skills %}
             {% for skill in role_requirements.skills %}
                 <span class="badge badge-skill">{{ skill }}</span>

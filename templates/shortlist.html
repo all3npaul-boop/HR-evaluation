@@ -3,12 +3,47 @@
 {% block title %}Shortlisting | CYGNUSA Elite-Hire{% endblock %}
 
 {% block content %}
-<h1 class="mb-3">Shortlisting</h1>
-<p class="text-muted">Rank candidates and shortlist based on role requirements.</p>
+<h1 class="mb-3">Shortlisting Dashboard</h1>
+<p class="text-muted">Role-based candidate overview and shortlisting.</p>
 
 {% if not candidates %}
     <div class="alert alert-info">No candidates uploaded yet. Upload resumes to see shortlist results.</div>
 {% else %}
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-soft border-0">
+                <div class="card-body">
+                    <h6 class="text-muted">Total Applicants</h6>
+                    <h3>{{ candidates | length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-soft border-0">
+                <div class="card-body">
+                    <h6 class="text-muted">Shortlisted</h6>
+                    <h3 class="text-success">{{ candidates | selectattr("decision", "equalto", "Hire") | list | length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-soft border-0">
+                <div class="card-body">
+                    <h6 class="text-muted">Potential</h6>
+                    <h3 class="text-warning">{{ candidates | selectattr("decision", "equalto", "Potential") | list | length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-soft border-0">
+                <div class="card-body">
+                    <h6 class="text-muted">Rejected</h6>
+                    <h3 class="text-danger">{{ candidates | selectattr("decision", "equalto", "Reject") | list | length }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="table-responsive">
         <table class="table table-hover align-middle">
             <thead class="table-light sticky-top">
@@ -21,6 +56,8 @@
                     <th>
                         <a href="?sort=decision&order={{ 'asc' if sort_order == 'desc' else 'desc' }}" class="text-decoration-none">Decision</a>
                     </th>
+                    <th>Education Match</th>
+                    <th>Certification Match</th>
                     <th></th>
                 </tr>
             </thead>
@@ -37,6 +74,20 @@
                             <span class="badge bg-warning text-dark">Potential</span>
                         {% else %}
                             <span class="badge bg-danger">Reject</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if candidate.education_match %}
+                            <span class="badge bg-success">Matched</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Not Found</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if candidate.education_evidence and candidate.education_evidence.certifications %}
+                            <span class="badge bg-success">Yes</span>
+                        {% else %}
+                            <span class="badge bg-secondary">No</span>
                         {% endif %}
                     </td>
                     <td><a href="/candidates" class="btn btn-sm btn-outline-primary">View Details</a></td>

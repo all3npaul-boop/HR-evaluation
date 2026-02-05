@@ -32,6 +32,14 @@
                         </div>
                     </div>
                 </div>
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h6 class="text-muted">Fundamentals</h6>
+                            <ul id="fundamentals-preview" class="mb-0"></ul>
+                        </div>
+                    </div>
+                </div>
                 <div class="col-md-3">
                     <div class="card h-100">
                         <div class="card-body">
@@ -68,14 +76,17 @@
     const skillsPreview = document.getElementById("skills-preview");
     const experiencePreview = document.getElementById("experience-preview");
     const educationPreview = document.getElementById("education-preview");
+    const fundamentalsPreview = document.getElementById("fundamentals-preview");
 
     function renderPreview(role) {
         const data = rolesData[role];
         skillsPreview.innerHTML = "";
+        fundamentalsPreview.innerHTML = "";
         if (!data) {
             experiencePreview.textContent = "-";
             educationPreview.textContent = "-";
             skillsPreview.innerHTML = "<span class='text-muted'>Select a role to view requirements.</span>";
+            fundamentalsPreview.innerHTML = "<li class='text-muted'>Select a role to view fundamentals.</li>";
             return;
         }
         data.skills.forEach((skill) => {
@@ -83,6 +94,11 @@
             badge.className = "badge badge-skill";
             badge.textContent = skill;
             skillsPreview.appendChild(badge);
+        });
+        (data.fundamentals || []).forEach((item) => {
+            const listItem = document.createElement("li");
+            listItem.textContent = item;
+            fundamentalsPreview.appendChild(listItem);
         });
         experiencePreview.textContent = data.experience || "-";
         educationPreview.textContent = data.education || "-";

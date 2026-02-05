@@ -41,6 +41,31 @@
     </div>
 </div>
 
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card shadow-soft border-0">
+            <div class="card-body">
+                <h6 class="text-muted">Education Alignment</h6>
+                <div class="progress mb-2">
+                    <div class="progress-bar bg-info" style="width: {{ education_alignment }}%"></div>
+                </div>
+                <small class="text-muted">{{ education_alignment }}% of candidates match education requirements.</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-soft border-0">
+            <div class="card-body">
+                <h6 class="text-muted">Certification Presence</h6>
+                <div class="progress mb-2">
+                    <div class="progress-bar bg-success" style="width: {{ certification_presence }}%"></div>
+                </div>
+                <small class="text-muted">{{ certification_presence }}% of candidates have certifications.</small>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="card shadow-soft border-0">
     <div class="card-body">
         <h5 class="card-title">Top Missing Skills</h5>

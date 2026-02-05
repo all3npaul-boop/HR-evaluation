@@ -61,6 +61,35 @@
                 </div>
             </div>
 
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <h6 class="text-muted">Education Evidence</h6>
+                    {% if candidate.education_evidence and candidate.education_evidence.degrees %}
+                        {% for degree in candidate.education_evidence.degrees %}
+                            <span class="badge bg-info text-dark me-1 mb-1">{{ degree }}</span>
+                        {% endfor %}
+                    {% else %}
+                        <span class="text-muted">No degree mentions detected.</span>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    <h6 class="text-muted">Certifications & Courses</h6>
+                    {% if candidate.education_evidence and candidate.education_evidence.certifications %}
+                        {% for cert in candidate.education_evidence.certifications %}
+                            <span class="badge bg-success me-1 mb-1">{{ cert }}</span>
+                        {% endfor %}
+                    {% endif %}
+                    {% if candidate.education_evidence and candidate.education_evidence.courses %}
+                        {% for course in candidate.education_evidence.courses %}
+                            <span class="badge bg-secondary me-1 mb-1">{{ course }}</span>
+                        {% endfor %}
+                    {% endif %}
+                    {% if not candidate.education_evidence or (not candidate.education_evidence.certifications and not candidate.education_evidence.courses) %}
+                        <span class="text-muted">No certifications or courses detected.</span>
+                    {% endif %}
+                </div>
+            </div>
+
             <div class="row mt-4">
                 <div class="col-md-4">
                     <h6 class="text-muted">Skills Score</h6>
@@ -79,6 +108,7 @@
                     <div class="progress">
                         <div class="progress-bar bg-secondary" style="width: {{ (candidate.breakdown.education / 15) * 100 }}%"></div>
                     </div>
+                    <small class="text-muted">Certification bonus: {{ candidate.certification_bonus }} pts</small>
                 </div>
             </div>
 

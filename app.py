@@ -12,107 +12,89 @@ from flask import Flask, jsonify, redirect, render_template, request, session, u
 DEFAULT_JD_SKILLS = ["python", "sql", "data structures", "problem solving"]
 DEFAULT_REQUIRED_EXPERIENCE = 3  # years
 DEFAULT_REQUIRED_EDUCATION = "bachelor"
+DEFAULT_FUNDAMENTALS = [
+    "Role fundamentals not specified.",
+]
 
 # Local job role dataset (technology roles only).
 JOB_ROLES = {
     "Full Stack Developer": {
-        "skills": [
-            "react.js",
-            "node.js",
-            "express.js",
-            "postgresql",
-            "rest api development",
-            "aws basics",
-            "docker",
-            "git",
+        "fundamentals": [
+            "Frontend + Backend integration understanding",
+            "API development and integration",
+            "Database interaction fundamentals",
+            "Version control knowledge",
+            "Basic cloud deployment knowledge",
         ],
+        "skills": ["react.js", "node.js", "sql/nosql", "rest apis", "git"],
         "experience": 3,
-        "education": "Bachelor in Computer Science or related field",
+        "education": "Computer Science / Software Engineering",
     },
     "Frontend Developer": {
-        "skills": [
-            "react.js",
-            "typescript",
-            "html5",
-            "css3",
-            "tailwind / bootstrap",
-            "state management (redux / context api)",
-            "web performance optimization",
+        "fundamentals": [
+            "UI/UX implementation",
+            "Responsive design principles",
+            "Browser rendering optimization",
+            "Client-side performance understanding",
         ],
+        "skills": ["react.js", "typescript", "html5", "css3", "ui frameworks"],
         "experience": 2,
-        "education": "Bachelor in Computer Science or related field",
+        "education": "Computer Science / IT",
     },
     "Backend Developer": {
-        "skills": [
-            "node.js",
-            "python (django / fastapi)",
-            "postgresql / mongodb",
-            "microservices architecture",
-            "authentication systems",
-            "api security",
+        "fundamentals": [
+            "Server-side architecture",
+            "Authentication and authorization",
+            "Database design principles",
+            "API security fundamentals",
         ],
+        "skills": ["node.js", "python", "sql/nosql", "microservices"],
         "experience": 3,
-        "education": "Bachelor in Computer Science or related field",
+        "education": "Computer Science",
     },
     "DevOps Engineer": {
-        "skills": [
-            "docker",
-            "kubernetes",
-            "ci/cd pipelines",
-            "aws / azure",
-            "terraform",
-            "monitoring tools (prometheus / grafana)",
-            "linux administration",
+        "fundamentals": [
+            "CI/CD lifecycle understanding",
+            "Infrastructure automation",
+            "Monitoring and logging principles",
+            "Containerization fundamentals",
         ],
+        "skills": ["docker", "kubernetes", "cloud platforms", "terraform"],
         "experience": 3,
-        "education": "Bachelor in Computer Science or related field",
+        "education": "Computer Science / IT",
     },
     "Data Analyst": {
-        "skills": [
-            "sql",
-            "python (pandas / numpy)",
-            "power bi / tableau",
-            "data cleaning",
-            "statistical analysis",
-            "excel advanced functions",
+        "fundamentals": [
+            "Data interpretation",
+            "Statistical reasoning",
+            "Business data visualization",
+            "Data cleaning techniques",
         ],
+        "skills": ["sql", "python", "tableau/power bi", "excel"],
         "experience": 2,
-        "education": "Bachelor in Computer Science, Statistics, or related field",
-    },
-    "Data Scientist": {
-        "skills": [
-            "python (scikit-learn, tensorflow, pytorch)",
-            "machine learning algorithms",
-            "data visualization",
-            "feature engineering",
-            "model evaluation",
-            "statistical modeling",
-        ],
-        "experience": 3,
-        "education": "Bachelor or Master in Data Science, AI, or Computer Science",
+        "education": "Statistics / Computer Science",
     },
     "Cloud Engineer": {
-        "skills": [
-            "aws / azure / gcp",
-            "infrastructure as code",
-            "networking fundamentals",
-            "cloud security",
-            "load balancing",
-            "serverless architecture",
+        "fundamentals": [
+            "Cloud infrastructure design",
+            "Networking fundamentals",
+            "Security and access management",
+            "Load balancing and scalability",
         ],
+        "skills": ["aws/azure/gcp", "infrastructure as code", "networking"],
         "experience": 3,
-        "education": "Bachelor in Computer Science or related field",
+        "education": "Computer Science",
     },
     "Mobile App Developer": {
-        "skills": [
-            "flutter / react native",
-            "android (kotlin / java)",
-            "ios development",
-            "rest api integration",
-            "mobile ui/ux principles",
+        "fundamentals": [
+            "Mobile architecture principles",
+            "API integration",
+            "Platform-specific UI optimization",
+            "Performance tuning",
         ],
+        "skills": ["flutter", "react native", "kotlin/swift"],
         "experience": 2,
-        "education": "Bachelor in Computer Science or related field",
+        "education": "Computer Science",
     },
 }
 
@@ -140,11 +122,70 @@ SKILL_ALIASES = {
     ],
     "flutter / react native": ["flutter", "react native"],
     "android (kotlin / java)": ["android", "kotlin", "java"],
+    "sql/nosql": ["sql", "nosql", "mongodb", "postgresql", "mysql"],
+    "rest apis": ["rest api", "restful api", "api integration"],
+    "ui frameworks": ["bootstrap", "tailwind", "material ui"],
+    "tableau/power bi": ["tableau", "power bi"],
+    "cloud platforms": ["aws", "azure", "gcp", "amazon web services", "google cloud"],
+    "aws/azure/gcp": ["aws", "azure", "gcp", "amazon web services", "google cloud"],
+    "kotlin/swift": ["kotlin", "swift", "ios", "android"],
+    "react native": ["reactnative", "react-native"],
 }
+
+DEGREE_KEYWORDS = [
+    "bachelor",
+    "master",
+    "phd",
+    "b.sc",
+    "m.sc",
+    "bachelor of science",
+    "master of science",
+    "computer science",
+    "software engineering",
+    "information technology",
+]
+CERT_KEYWORDS = [
+    "aws certified",
+    "azure certified",
+    "google cloud certified",
+    "ccna",
+    "cka",
+    "ckad",
+    "pmp",
+    "scrum master",
+    "oracle certified",
+]
+COURSE_KEYWORDS = [
+    "coursera",
+    "udemy",
+    "edx",
+    "pluralsight",
+    "linkedin learning",
+    "online course",
+    "certificate",
+]
 
 app = Flask(__name__)
 app.secret_key = "cygnusa-elite-hire"
 
+
+@app.context_processor
+def inject_counts() -> dict:
+    """Provide candidate counts for sidebar badges."""
+    role_results = session.get("role_results", {})
+    selected_role = session.get("selected_role", "")
+    candidates = role_results.get(selected_role, session.get("last_results", []))
+    return {
+        "candidate_counts": {
+            "hire": sum(1 for candidate in candidates if candidate.get("decision") == "Hire"),
+            "potential": sum(
+                1 for candidate in candidates if candidate.get("decision") == "Potential"
+            ),
+            "reject": sum(
+                1 for candidate in candidates if candidate.get("decision") == "Reject"
+            ),
+        }
+    }
 
 def normalize_text(text: str) -> str:
     """Normalize text for consistent matching."""
@@ -170,6 +211,33 @@ def extract_text_from_pdf(pdf_file) -> str:
         return normalize_text("\n".join(pages))
     except Exception:
         return ""
+
+
+def get_role_requirements(role: str) -> dict:
+    """Return role requirements with employer overrides applied."""
+    base_requirements = JOB_ROLES.get(role, {})
+    custom_roles = session.get("custom_roles", {})
+    custom = custom_roles.get(role, {})
+    return {
+        "fundamentals": custom.get("fundamentals")
+        or base_requirements.get("fundamentals", DEFAULT_FUNDAMENTALS),
+        "skills": custom.get("skills") or base_requirements.get("skills", DEFAULT_JD_SKILLS),
+        "experience": custom.get("experience", base_requirements.get("experience", DEFAULT_REQUIRED_EXPERIENCE)),
+        "education": custom.get("education", base_requirements.get("education", DEFAULT_REQUIRED_EDUCATION)),
+    }
+
+
+def extract_education_and_certifications(text: str) -> dict:
+    """Extract degree mentions, certifications, and course references."""
+    normalized_text = normalize_text(text)
+    degrees = [keyword for keyword in DEGREE_KEYWORDS if keyword in normalized_text]
+    certifications = [keyword for keyword in CERT_KEYWORDS if keyword in normalized_text]
+    courses = [keyword for keyword in COURSE_KEYWORDS if keyword in normalized_text]
+    return {
+        "degrees": sorted(set(degrees)),
+        "certifications": sorted(set(certifications)),
+        "courses": sorted(set(courses)),
+    }
 
 
 # Core logic function wrappers (required names)
@@ -233,7 +301,7 @@ def evaluate_required_skills(text: str, required_skills: List[str]) -> Tuple[Lis
         candidates = [normalized_skill, *aliases]
         if any(
             candidate in normalized_text
-            if " " in candidate or "." in candidate
+            if any(char in candidate for char in [" ", ".", "/"])
             else candidate in tokens
             for candidate in candidates
         ):
@@ -303,6 +371,8 @@ def calculate_score(
     education_score = 15 if education_match else 7
 
     total_score = skills_score + experience_score + education_score
+    education_evidence = extract_education_and_certifications(resume_text)
+    certification_bonus = 5 if education_evidence["certifications"] else 0
 
     return {
         "required_skills": required_skills,
@@ -316,6 +386,8 @@ def calculate_score(
         "education_score": education_score,
         "education_match": education_match,
         "required_education": required_education,
+        "education_evidence": education_evidence,
+        "certification_bonus": certification_bonus,
         "total_score": total_score,
     }
 
@@ -393,11 +465,13 @@ def explain(
 @app.route("/")
 def index() -> str:
     """Render the upload form."""
+    selected_role = session.get("selected_role", "")
     return render_template(
         "index.html",
         roles=sorted(JOB_ROLES.keys()),
         roles_data=JOB_ROLES,
-        selected_role=session.get("selected_role", ""),
+        selected_role=selected_role,
+        role_requirements=get_role_requirements(selected_role),
         active_page="upload",
     )
 
@@ -406,8 +480,9 @@ def index() -> str:
 def dashboard() -> str:
     """Render the employer dashboard overview."""
     selected_role = session.get("selected_role", "")
-    role_requirements = JOB_ROLES.get(selected_role, {})
-    candidates = session.get("last_results", [])
+    role_requirements = get_role_requirements(selected_role)
+    role_results = session.get("role_results", {})
+    candidates = role_results.get(selected_role, session.get("last_results", []))
     counts = {
         "total": len(candidates),
         "hire": sum(1 for candidate in candidates if candidate["decision"] == "Hire"),
@@ -433,8 +508,9 @@ def dashboard() -> str:
 def shortlist() -> str:
     """Render the shortlist page."""
     selected_role = session.get("selected_role", "")
-    role_requirements = JOB_ROLES.get(selected_role, {})
-    candidates = session.get("last_results", [])
+    role_requirements = get_role_requirements(selected_role)
+    role_results = session.get("role_results", {})
+    candidates = role_results.get(selected_role, session.get("last_results", []))
     sort_key = request.args.get("sort", "score")
     sort_order = request.args.get("order", "desc")
     reverse = sort_order == "desc"
@@ -466,7 +542,7 @@ def shortlist() -> str:
 def evaluation() -> str:
     """Render the candidate evaluation page."""
     selected_role = session.get("selected_role", "")
-    role_requirements = JOB_ROLES.get(selected_role, {})
+    role_requirements = get_role_requirements(selected_role)
     return render_template(
         "evaluation.html",
         roles=sorted(JOB_ROLES.keys()),
@@ -482,7 +558,7 @@ def evaluation() -> str:
 def candidates() -> str:
     """Render candidate detail page."""
     selected_role = session.get("selected_role", "")
-    role_requirements = JOB_ROLES.get(selected_role, {})
+    role_requirements = get_role_requirements(selected_role)
     return render_template(
         "candidates.html",
         roles=sorted(JOB_ROLES.keys()),
@@ -498,21 +574,55 @@ def candidates() -> str:
 def roles() -> str:
     """Render the job roles page."""
     selected_role = session.get("selected_role", "")
-    role_requirements = JOB_ROLES.get(selected_role, {})
+    role_requirements = get_role_requirements(selected_role)
     return render_template(
         "roles.html",
         roles=sorted(JOB_ROLES.keys()),
         roles_data=JOB_ROLES,
         selected_role=selected_role,
         role_requirements=role_requirements,
+        fundamentals=role_requirements.get("fundamentals", DEFAULT_FUNDAMENTALS),
         active_page="roles",
     )
+
+
+@app.route("/roles/update", methods=["POST"])
+def update_role() -> str:
+    """Update role requirements based on employer edits."""
+    role = request.form.get("job_role", "").strip()
+    if not role:
+        return redirect(url_for("roles"))
+
+    skills_raw = request.form.get("skills", "")
+    fundamentals_raw = request.form.get("fundamentals", "")
+    experience_raw = request.form.get("experience", "").strip()
+    education = request.form.get("education", "").strip()
+
+    skills = [skill.strip().lower() for skill in skills_raw.split(",") if skill.strip()]
+    fundamentals = [
+        item.strip() for item in fundamentals_raw.split("\n") if item.strip()
+    ]
+    experience = int(experience_raw) if experience_raw.isdigit() else DEFAULT_REQUIRED_EXPERIENCE
+    education_value = education or DEFAULT_REQUIRED_EDUCATION
+
+    custom_roles = session.get("custom_roles", {})
+    custom_roles[role] = {
+        "skills": skills or JOB_ROLES.get(role, {}).get("skills", DEFAULT_JD_SKILLS),
+        "fundamentals": fundamentals or JOB_ROLES.get(role, {}).get("fundamentals", DEFAULT_FUNDAMENTALS),
+        "experience": experience,
+        "education": education_value,
+    }
+    session["custom_roles"] = custom_roles
+    session["selected_role"] = role
+    return redirect(url_for("roles"))
 
 
 @app.route("/insights")
 def insights() -> str:
     """Render the insights page."""
-    candidates = session.get("last_results", [])
+    selected_role = session.get("selected_role", "")
+    role_results = session.get("role_results", {})
+    candidates = role_results.get(selected_role, session.get("last_results", []))
     total_candidates = len(candidates)
     average_score = (
         round(sum(candidate["score"] for candidate in candidates) / total_candidates)
@@ -520,15 +630,26 @@ def insights() -> str:
         else 0
     )
     missing_skill_counts: dict[str, int] = {}
+    education_matches = 0
+    cert_matches = 0
     for candidate in candidates:
         for skill in candidate.get("missing_skills", []):
             missing_skill_counts[skill] = missing_skill_counts.get(skill, 0) + 1
+        if candidate.get("education_match"):
+            education_matches += 1
+        if candidate.get("education_evidence", {}).get("certifications"):
+            cert_matches += 1
 
     top_missing_skills = sorted(
         missing_skill_counts.items(), key=lambda item: item[1], reverse=True
     )
-    selected_role = session.get("selected_role", "")
-    role_requirements = JOB_ROLES.get(selected_role, {})
+    role_requirements = get_role_requirements(selected_role)
+    education_alignment = (
+        round((education_matches / total_candidates) * 100) if total_candidates else 0
+    )
+    certification_presence = (
+        round((cert_matches / total_candidates) * 100) if total_candidates else 0
+    )
     return render_template(
         "insights.html",
         roles=sorted(JOB_ROLES.keys()),
@@ -538,6 +659,8 @@ def insights() -> str:
         total_candidates=total_candidates,
         average_score=average_score,
         top_missing_skills=top_missing_skills,
+        education_alignment=education_alignment,
+        certification_presence=certification_presence,
         active_page="insights",
     )
 
@@ -549,7 +672,7 @@ def upload() -> str:
     job_description = ""
     if job_role:
         session["selected_role"] = job_role
-    role_requirements = JOB_ROLES.get(job_role, {})
+    role_requirements = get_role_requirements(job_role)
     if not role_requirements:
         role_requirements = {
             "skills": DEFAULT_JD_SKILLS,
@@ -596,16 +719,24 @@ def upload() -> str:
                 "skill_match_ratio": round(score_data["skill_match_ratio"], 2),
                 "matched_skills": score_data["matched_skills"],
                 "missing_skills": score_data["missing_skills"],
+                "education_match": score_data["education_match"],
+                "education_evidence": score_data["education_evidence"],
+                "certification_bonus": score_data["certification_bonus"],
                 "breakdown": {
                     "skills": round(score_data["skills_score"]),
                     "experience": round(score_data["experience_score"]),
                     "education": round(score_data["education_score"]),
                 },
+                "role": job_role or "Unspecified",
             }
         )
 
     ranked_results = sorted(results, key=lambda item: item["score"], reverse=True)
     session["last_results"] = ranked_results
+    role_results = session.get("role_results", {})
+    role_key = job_role or "Unspecified"
+    role_results[role_key] = ranked_results
+    session["role_results"] = role_results
 
     return render_template(
         "results.html",
